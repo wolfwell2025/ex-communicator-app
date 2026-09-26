@@ -166,7 +166,7 @@ export function EventDateTimeFields({ value, onChange, disabled }: Props) {
   const endInvalid = validateParts(value) !== null;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <label className="flex items-center gap-2.5 text-sm text-foreground">
         <input
           type="checkbox"
@@ -178,8 +178,8 @@ export function EventDateTimeFields({ value, onChange, disabled }: Props) {
         <span className="font-medium">All day</span>
       </label>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block space-y-1.5">
+      <div className="grid gap-2.5 sm:grid-cols-2">
+        <label className="block space-y-1">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted">
             Start date
           </span>

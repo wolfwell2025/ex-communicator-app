@@ -4,10 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { PersonalCalendarConnection } from "@/lib/types";
 
 const secondaryBtn =
-  "inline-flex items-center justify-center rounded-xl border border-border bg-card px-3.5 py-2 text-sm font-semibold text-foreground shadow-[var(--shadow-sm)] transition-colors hover:border-border-strong hover:bg-surface disabled:opacity-50";
+  "inline-flex items-center justify-center rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground shadow-[var(--shadow-sm)] transition-colors hover:border-border-strong hover:bg-surface disabled:opacity-50";
 
 const primaryBtn =
-  "inline-flex items-center justify-center rounded-xl bg-accent px-3.5 py-2 text-sm font-semibold text-white shadow-[var(--shadow-sm)] transition-colors hover:bg-accent-hover disabled:opacity-50";
+  "inline-flex items-center justify-center rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-white shadow-[var(--shadow-sm)] transition-colors hover:bg-accent-hover disabled:opacity-50";
 
 type GoogleCalOption = {
   id: string;
@@ -24,6 +24,49 @@ type Props = {
   oauthConfiguredHint?: boolean;
 };
 
+const LABEL_COLORS = [
+  "#1d4ed8",
+  "#7c3aed",
+  "#059669",
+  "#d97706",
+  "#db2777",
+  "#0891b2",
+  "#4f46e5",
+  "#ca8a04",
+];
+
+function colorForLabel(label: string | null, id: string): string {
+  const seed = (label || id || "cal").toLowerCase();
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+  return LABEL_COLORS[Math.abs(hash) % LABEL_COLORS.length];
+}
+
+function inferKind(label: string | null, calendarId: string | null): string {
+  const s = `${label ?? ""} ${calendarId ?? ""}`.toLowerCase();
+  if (/\b(work|office|job|corp)\b/.test(s)) return "Work";
+  if (/\b(family|kids|children|shared|household)\b/.test(s)) return "Family";
+  if (/\b(personal|me|home|primary)\b/.test(s)) return "Personal";
+  if (label && label.trim()) return "Custom";
+  return "Google";
+}
+
+function formatRelativeSync(iso: string | null): string {
+  if (!iso) return "Not synced yet";
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "Not synced yet";
+  const diff = Date.now() - then;
+  const sec = Math.floor(diff / 1000);
+  if (sec < 45) return "Synced just now";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `Synced ${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `Synced ${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `Synced ${day}d ago`;
+  return `Synced ${new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+}
+
 export function ConnectedCalendars({
   connections,
   onChanged,
@@ -38,7 +81,7 @@ export function ConnectedCalendars({
   const [fromConnection, setFromConnection] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [options, setOptions] = useState<GoogleCalOption[]>([]);
-  const [selected, setSelected] = useState<Record<string, string>>({}); // id -> label
+  const [selected, setSelected] = useState<Record<string, string>>({});
   const [privacyNote, setPrivacyNote] = useState<string | null>(null);
   const autoOpened = useRef(false);
 
@@ -86,7 +129,6 @@ export function ConnectedCalendars({
   useEffect(() => {
     if (!autoOpenPicker || autoOpened.current) return;
     autoOpened.current = true;
-    // Defer so OAuth return does not setState synchronously in the effect body.
     const t = window.setTimeout(() => {
       void loadPicker();
     }, 0);
@@ -218,19 +260,21 @@ export function ConnectedCalendars({
   }
 
   return (
-    <section id="connected-calendars" className="rounded-3xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
+    <section
+      id="connected-calendars"
+      className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-sm)] sm:p-5"
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-foreground sm:text-base">
             Connected calendars
           </h2>
           <p className="mt-1 max-w-xl text-xs leading-5 text-muted">
-            Connect personal, family, or work Google calendars.{" "}
+            Personal, work, or family Google calendars.{" "}
             <span className="font-semibold text-foreground">
-              Sync never shares events with your co-parent.
+              Sync never shares with your co-parent.
             </span>{" "}
-            Imports stay private until you propose an event and they accept
-            in-app.
+            Imports stay private until you propose and they accept.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -241,7 +285,7 @@ export function ConnectedCalendars({
               disabled={busy}
               onClick={() => void loadPicker(googleConnections[0].id)}
             >
-              Add another calendar
+              Add another
             </button>
           ) : null}
           <a
@@ -249,16 +293,14 @@ export function ConnectedCalendars({
             className={primaryBtn}
             aria-disabled={busy}
           >
-            {googleConnections.length > 0
-              ? "Connect Google again"
-              : "Connect Google Calendar"}
+            {googleConnections.length > 0 ? "Connect Google again" : "Connect Google Calendar"}
           </a>
         </div>
       </div>
 
       {error ? (
         <p
-          className="mt-3 rounded-2xl border border-red-200 bg-danger-soft px-3.5 py-2.5 text-sm text-danger"
+          className="mt-3 rounded-xl border border-red-200 bg-danger-soft px-3.5 py-2.5 text-sm text-danger"
           role="alert"
         >
           {error}
@@ -272,7 +314,7 @@ export function ConnectedCalendars({
       ) : null}
 
       {note ? (
-        <p className="mt-3 rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-sm text-muted">
+        <p className="mt-3 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm text-muted">
           {note}{" "}
           <button
             type="button"
@@ -292,63 +334,114 @@ export function ConnectedCalendars({
       ) : null}
 
       {googleConnections.length === 0 ? (
-        <p className="mt-4 text-sm text-muted">
-          No calendars connected. Connect Google, then pick personal, work, or
-          shared family calendars to sync privately.
-        </p>
+        <div className="mt-4 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-surface/60 px-4 py-6 text-center">
+          <div
+            className="flex h-11 w-11 items-center justify-center rounded-xl bg-card ring-1 ring-border"
+            aria-hidden
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="text-muted">
+              <rect x="3" y="5" width="18" height="16" rx="2" />
+              <path d="M3 9h18M8 3v4M16 3v4" />
+            </svg>
+          </div>
+          <p className="text-sm font-medium text-foreground">No calendars connected</p>
+          <p className="max-w-sm text-xs leading-5 text-muted">
+            Connect Google, then pick personal, work, or shared family calendars.
+            Everything imports as private.
+          </p>
+        </div>
       ) : (
         <ul className="mt-4 space-y-2">
-          {googleConnections.map((c) => (
-            <li
-              key={c.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-background px-3.5 py-3"
-            >
-              <div className="min-w-0">
-                <p className="font-semibold text-foreground">
-                  {c.label || c.external_calendar_id || "Google calendar"}
-                </p>
-                <p className="text-xs text-muted">
-                  {c.external_account_email || "Google"}
-                  {c.external_calendar_id
-                    ? ` · ${c.external_calendar_id}`
-                    : ""}
-                  {c.last_synced_at
-                    ? ` · Synced ${new Date(c.last_synced_at).toLocaleString()}`
-                    : " · Not synced yet"}
-                  {c.sync_enabled ? "" : " · Sync paused"}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                <label className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground">
-                  <input
-                    type="checkbox"
-                    checked={c.sync_enabled}
+          {googleConnections.map((c) => {
+            const color = colorForLabel(c.label, c.id);
+            const kind = inferKind(c.label, c.external_calendar_id);
+            const displayName =
+              c.label?.trim() ||
+              c.external_calendar_id ||
+              "Google calendar";
+            return (
+              <li
+                key={c.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background px-3 py-3 sm:px-3.5"
+              >
+                <div className="flex min-w-0 items-start gap-3">
+                  <span
+                    className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white shadow-[var(--shadow-sm)]"
+                    style={{ backgroundColor: color }}
+                    aria-hidden
+                  >
+                    {(displayName.slice(0, 1) || "G").toUpperCase()}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <p className="truncate font-semibold text-foreground">
+                        {displayName}
+                      </p>
+                      <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted ring-1 ring-border">
+                        {kind}
+                      </span>
+                      {!c.sync_enabled ? (
+                        <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[10px] font-semibold text-warning">
+                          Paused
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-0.5 truncate text-xs text-muted">
+                      {c.external_account_email || "Google"}
+                      {c.external_calendar_id && c.label
+                        ? ` · ${c.external_calendar_id}`
+                        : ""}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted">
+                      {formatRelativeSync(c.last_synced_at)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <label
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground"
+                    title={c.sync_enabled ? "Sync enabled" : "Sync paused"}
+                  >
+                    <span
+                      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                        c.sync_enabled ? "bg-accent" : "bg-slate-300"
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                          c.sync_enabled ? "translate-x-4" : "translate-x-0.5"
+                        }`}
+                      />
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={c.sync_enabled}
+                        disabled={busy}
+                        onChange={(e) => void toggleSync(c.id, e.target.checked)}
+                      />
+                    </span>
+                    Sync
+                  </label>
+                  <button
+                    type="button"
+                    className={secondaryBtn}
+                    disabled={busy || !c.sync_enabled}
+                    onClick={() => void syncOne(c.id)}
+                  >
+                    Sync now
+                  </button>
+                  <button
+                    type="button"
+                    className={secondaryBtn}
                     disabled={busy}
-                    onChange={(e) =>
-                      void toggleSync(c.id, e.target.checked)
-                    }
-                  />
-                  Sync on
-                </label>
-                <button
-                  type="button"
-                  className={secondaryBtn}
-                  disabled={busy || !c.sync_enabled}
-                  onClick={() => void syncOne(c.id)}
-                >
-                  Sync now
-                </button>
-                <button
-                  type="button"
-                  className={secondaryBtn}
-                  disabled={busy}
-                  onClick={() => void removeOne(c.id)}
-                >
-                  Disconnect
-                </button>
-              </div>
-            </li>
-          ))}
+                    onClick={() => void removeOne(c.id)}
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -366,26 +459,28 @@ export function ConnectedCalendars({
             disabled={busy}
             onClick={() => setPickerOpen(false)}
           />
-          <div className="relative z-10 max-h-[min(92vh,640px)] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-border bg-card p-5 shadow-[var(--shadow-lg)] sm:mx-4 sm:rounded-3xl sm:p-6">
-            <h3
-              id="google-cal-picker-title"
-              className="text-xl font-semibold tracking-tight text-foreground"
-            >
-              Choose calendars to sync
-            </h3>
-            <p className="mt-1 text-xs leading-5 text-muted">
-              {email ? `Account: ${email}. ` : ""}
-              {privacyNote ||
-                "Selected calendars import as private only. Nothing is shared with your co-parent until you propose an event in-app."}
-            </p>
+          <div className="relative z-10 max-h-[min(92vh,640px)] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-border bg-card shadow-[var(--shadow-lg)] sm:mx-4 sm:rounded-2xl">
+            <div className="sticky top-0 border-b border-border bg-card/95 px-4 py-3.5 backdrop-blur sm:px-5">
+              <h3
+                id="google-cal-picker-title"
+                className="text-lg font-semibold tracking-tight text-foreground sm:text-xl"
+              >
+                Choose calendars to sync
+              </h3>
+              <p className="mt-1 text-xs leading-5 text-muted">
+                {email ? `Account: ${email}. ` : ""}
+                {privacyNote ||
+                  "Selected calendars import as private only. Nothing is shared until you propose an event in-app."}
+              </p>
+            </div>
 
-            <ul className="mt-4 space-y-2">
+            <ul className="space-y-2 px-4 py-4 sm:px-5">
               {options.map((cal) => {
                 const checked = selected[cal.id] !== undefined;
                 return (
                   <li
                     key={cal.id}
-                    className={`rounded-2xl border px-3.5 py-3 ${
+                    className={`rounded-xl border px-3.5 py-3 ${
                       cal.alreadyConnected
                         ? "border-border bg-surface opacity-70"
                         : checked
@@ -416,19 +511,24 @@ export function ConnectedCalendars({
                           ) : null}
                         </span>
                         {checked && !cal.alreadyConnected ? (
-                          <input
-                            className="mt-2 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm"
-                            value={selected[cal.id]}
-                            disabled={busy}
-                            onChange={(e) =>
-                              setSelected((prev) => ({
-                                ...prev,
-                                [cal.id]: e.target.value,
-                              }))
-                            }
-                            placeholder="Label (e.g. Work, Kids, Personal)"
-                            maxLength={120}
-                          />
+                          <div className="mt-2 space-y-1">
+                            <span className="text-[11px] font-medium text-muted">
+                              Label (personal / work / family)
+                            </span>
+                            <input
+                              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm"
+                              value={selected[cal.id]}
+                              disabled={busy}
+                              onChange={(e) =>
+                                setSelected((prev) => ({
+                                  ...prev,
+                                  [cal.id]: e.target.value,
+                                }))
+                              }
+                              placeholder="e.g. Work, Kids, Personal"
+                              maxLength={120}
+                            />
+                          </div>
                         ) : null}
                       </span>
                     </label>
@@ -438,12 +538,12 @@ export function ConnectedCalendars({
             </ul>
 
             {options.length === 0 ? (
-              <p className="mt-3 text-sm text-muted">
+              <p className="px-4 pb-2 text-sm text-muted sm:px-5">
                 No calendars returned from Google.
               </p>
             ) : null}
 
-            <div className="mt-5 flex flex-wrap justify-end gap-2">
+            <div className="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t border-border bg-card/95 px-4 py-3 backdrop-blur sm:px-5">
               <button
                 type="button"
                 className={secondaryBtn}

@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/client";
 import {
   EVENT_TYPE_LABELS,
   EVENT_TYPES,
-  VISIBILITY_LABELS,
   acceptCalendarEvent,
   cancelProposal,
   createCalendarEvent,
@@ -22,6 +21,7 @@ import {
 import type {
   CalendarEvent,
   CalendarEventType,
+  CalendarVisibility,
   PersonalCalendarConnection,
 } from "@/lib/types";
 import { ConnectedCalendars } from "@/components/calendar/connected-calendars";
@@ -46,12 +46,37 @@ type Props = {
 };
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MAX_CHIPS = 3;
 
 const secondaryBtn =
-  "inline-flex items-center justify-center rounded-xl border border-border bg-card px-3.5 py-2 text-sm font-semibold text-foreground shadow-[var(--shadow-sm)] transition-colors hover:border-border-strong hover:bg-surface disabled:opacity-50";
+  "inline-flex items-center justify-center rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground shadow-[var(--shadow-sm)] transition-colors hover:border-border-strong hover:bg-surface disabled:opacity-50";
 
 const primaryBtn =
-  "inline-flex items-center justify-center rounded-xl bg-accent px-3.5 py-2 text-sm font-semibold text-white shadow-[var(--shadow-sm)] transition-colors hover:bg-accent-hover disabled:opacity-50";
+  "inline-flex items-center justify-center rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-white shadow-[var(--shadow-sm)] transition-colors hover:bg-accent-hover disabled:opacity-50";
+
+const ghostBtn =
+  "inline-flex items-center justify-center rounded-lg px-2.5 py-1.5 text-sm font-semibold text-muted transition-colors hover:bg-surface hover:text-foreground disabled:opacity-50";
+
+/** Left accent by event type; fill driven by visibility */
+const TYPE_ACCENT: Record<CalendarEventType, string> = {
+  parenting_time: "border-l-[#1d4ed8]",
+  school: "border-l-[#7c3aed]",
+  medical: "border-l-[#dc2626]",
+  activity: "border-l-[#059669]",
+  other: "border-l-[#64748b]",
+};
+
+function chipClass(visibility: CalendarVisibility, eventType: CalendarEventType): string {
+  const accent = TYPE_ACCENT[eventType] ?? TYPE_ACCENT.other;
+  if (visibility === "shared") {
+    // Shared fill is blue; type accent still shows as a left stripe via accent color
+    return `border-l-2 ${accent} bg-accent text-white`;
+  }
+  if (visibility === "pending") {
+    return `border-l-2 ${accent} bg-amber-100 text-amber-900 ring-1 ring-amber-200/80`;
+  }
+  return `border-l-2 ${accent} bg-slate-100/90 text-slate-600 ring-1 ring-slate-200/70`;
+}
 
 function startOfMonth(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -107,6 +132,18 @@ function formatEventWhen(event: CalendarEvent): string {
   }
 }
 
+function formatChipTime(event: CalendarEvent): string {
+  if (event.all_day) return "";
+  try {
+    return new Date(event.starts_at).toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
+}
+
 type FormState = {
   title: string;
   description: string;
@@ -144,10 +181,7 @@ function visibilityBadge(event: CalendarEvent, userId: string): {
   className: string;
 } {
   if (event.visibility === "shared") {
-    return {
-      label: "Shared",
-      className: "bg-accent-soft text-accent",
-    };
+    return { label: "Shared", className: "bg-accent-soft text-accent" };
   }
   if (event.visibility === "pending") {
     return {
@@ -178,6 +212,37 @@ function buildMonthCells(month: Date): Array<{ date: Date; inMonth: boolean }> {
   return cells;
 }
 
+function EmptyIllustration({ label }: { label: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 py-6 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface ring-1 ring-border">
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          className="text-muted-foreground"
+          aria-hidden
+        >
+          <rect x="3" y="5" width="18" height="16" rx="2" />
+          <path d="M3 9h18M8 3v4M16 3v4" />
+        </svg>
+      </div>
+      <p className="text-sm text-muted">{label}</p>
+    </div>
+  );
+}
+
+function SkeletonBlock({ className }: { className?: string }) {
+  return (
+    <div
+      className={`animate-pulse rounded-xl bg-surface ring-1 ring-border/60 ${className ?? ""}`}
+    />
+  );
+}
+
 export function CalendarPanel({
   householdId,
   householdName,
@@ -195,11 +260,13 @@ export function CalendarPanel({
   const [selectedDay, setSelectedDay] = useState<Date>(() => new Date());
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(() => emptyForm());
 
   const refresh = useCallback(async () => {
+    setRefreshing(true);
     const [{ events: next, error: evErr }, { connections: conns }] =
       await Promise.all([
         listCalendarEvents(supabase, householdId),
@@ -207,10 +274,12 @@ export function CalendarPanel({
       ]);
     if (evErr) {
       setError(evErr);
+      setRefreshing(false);
       return;
     }
     setEvents(next);
     setConnections(conns);
+    setRefreshing(false);
   }, [householdId, supabase, userId]);
 
   useEffect(() => {
@@ -291,6 +360,12 @@ export function CalendarPanel({
   const cells = useMemo(() => buildMonthCells(month), [month]);
   const today = useMemo(() => new Date(), []);
 
+  function goToday() {
+    const t = new Date();
+    setMonth(startOfMonth(t));
+    setSelectedDay(t);
+  }
+
   function openCreate(day?: Date) {
     const d = day ?? selectedDay;
     setSelectedDay(d);
@@ -306,6 +381,13 @@ export function CalendarPanel({
     setForm(formFromEvent(event));
     setEditorOpen(true);
     setError(null);
+  }
+
+  function onDayClick(date: Date) {
+    const already = sameDay(date, selectedDay);
+    setSelectedDay(date);
+    // Second click on the same day opens create with that date prefilled
+    if (already) openCreate(date);
   }
 
   async function onSubmit(e: FormEvent) {
@@ -423,18 +505,21 @@ export function CalendarPanel({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1">
+    <div className="space-y-5 sm:space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
+        <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-4xl font-semibold tracking-tight text-foreground">
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
               Calendar
             </h1>
-            <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-accent">
+            <span className="rounded-full bg-accent-soft px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-accent">
               Live
             </span>
+            {refreshing ? (
+              <span className="text-[11px] font-medium text-muted">Updating…</span>
+            ) : null}
           </div>
-          <p className="max-w-2xl text-base leading-7 text-muted">
+          <p className="max-w-2xl text-sm leading-6 text-muted sm:text-base sm:leading-7">
             Shared custody calendar for{" "}
             <span className="font-semibold text-foreground">{householdName}</span>
             . Private events stay visible only to you until the co-parent
@@ -451,8 +536,8 @@ export function CalendarPanel({
             className={secondaryBtn}
           >
             {connections.some((c) => c.provider === "google" && c.status === "connected")
-              ? "Manage Google calendars"
-              : "Connect Google Calendar"}
+              ? "Manage calendars"
+              : "Connect Google"}
           </a>
           <button type="button" className={primaryBtn} onClick={() => openCreate()}>
             New event
@@ -477,29 +562,44 @@ export function CalendarPanel({
       ) : null}
 
       {incoming.length > 0 ? (
-        <section className="rounded-3xl border border-amber-200 bg-warning-soft p-5 shadow-[var(--shadow-sm)]">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-warning">
-            Share requests
-          </h2>
-          <p className="mt-1 text-sm text-muted">
-            These proposed events are not on the shared calendar yet. Accept to
-            make them visible to the household, or decline to leave them private
-            for the other parent only.
-          </p>
-          <ul className="mt-4 space-y-3">
+        <section className="overflow-hidden rounded-2xl border border-amber-200/80 bg-gradient-to-br from-warning-soft to-card shadow-[var(--shadow-sm)]">
+          <div className="border-b border-amber-200/60 px-4 py-3.5 sm:px-5">
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-warning">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                  <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+                </svg>
+              </span>
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">
+                  Share requests
+                  <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-warning">
+                    {incoming.length}
+                  </span>
+                </h2>
+                <p className="text-xs text-muted">
+                  Accept to share with the household, or decline to leave private for the other parent.
+                </p>
+              </div>
+            </div>
+          </div>
+          <ul className="divide-y divide-amber-100/80">
             {incoming.map((event) => (
               <li
                 key={event.id}
-                className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3"
+                className="flex flex-wrap items-start justify-between gap-3 bg-card/80 px-4 py-3.5 sm:px-5"
               >
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="font-semibold text-foreground">{event.title}</p>
                   <p className="mt-0.5 text-xs text-muted">
-                    {formatEventWhen(event)} · {EVENT_TYPE_LABELS[event.event_type]}
+                    {formatEventWhen(event)}
+                  </p>
+                  <p className="mt-1 text-[11px] font-medium text-muted">
+                    {EVENT_TYPE_LABELS[event.event_type]}
                     {event.location ? ` · ${event.location}` : ""}
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-shrink-0 flex-wrap gap-2">
                   <button
                     type="button"
                     className={primaryBtn}
@@ -523,106 +623,188 @@ export function CalendarPanel({
         </section>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.8fr)]">
-        <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-lg)]">
-          <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
-            <button
-              type="button"
-              className={secondaryBtn}
-              onClick={() => setMonth((m) => addMonths(m, -1))}
-              aria-label="Previous month"
-            >
-              ←
-            </button>
-            <h2 className="text-lg font-semibold tracking-tight text-foreground">
-              {formatMonthTitle(month)}
-            </h2>
-            <button
-              type="button"
-              className={secondaryBtn}
-              onClick={() => setMonth((m) => addMonths(m, 1))}
-              aria-label="Next month"
-            >
-              →
-            </button>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(16rem,0.7fr)] lg:gap-5">
+        <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-md)]">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2.5 sm:px-4">
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                className={ghostBtn}
+                onClick={() => setMonth((m) => addMonths(m, -1))}
+                aria-label="Previous month"
+              >
+                ‹
+              </button>
+              <h2 className="min-w-[9.5rem] text-center text-base font-semibold tracking-tight text-foreground sm:min-w-[11rem] sm:text-lg">
+                {formatMonthTitle(month)}
+              </h2>
+              <button
+                type="button"
+                className={ghostBtn}
+                onClick={() => setMonth((m) => addMonths(m, 1))}
+                aria-label="Next month"
+              >
+                ›
+              </button>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button type="button" className={secondaryBtn} onClick={goToday}>
+                Today
+              </button>
+              <button
+                type="button"
+                className={primaryBtn}
+                onClick={() => openCreate(selectedDay)}
+              >
+                + Add
+              </button>
+            </div>
           </div>
-          <div className="grid grid-cols-7 border-b border-border bg-surface text-center text-[11px] font-semibold uppercase tracking-wide text-muted">
+
+          <div className="grid grid-cols-7 border-b border-border bg-surface/80 text-center text-[10px] font-semibold uppercase tracking-wider text-muted sm:text-[11px]">
             {WEEKDAYS.map((d) => (
-              <div key={d} className="px-1 py-2">
-                {d}
+              <div key={d} className="px-0.5 py-1.5 sm:py-2">
+                <span className="sm:hidden">{d.slice(0, 1)}</span>
+                <span className="hidden sm:inline">{d}</span>
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-7">
-            {cells.map(({ date, inMonth }) => {
-              const key = dateKey(date);
-              const list = eventsByDay.get(key) ?? [];
-              const selected = sameDay(date, selectedDay);
-              const isToday = sameDay(date, today);
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setSelectedDay(date)}
-                  onDoubleClick={() => openCreate(date)}
-                  className={`min-h-[5.5rem] border-b border-r border-border p-1.5 text-left transition-colors sm:min-h-[6.5rem] ${
-                    selected
-                      ? "bg-accent-soft/60"
-                      : inMonth
-                        ? "bg-card hover:bg-surface"
-                        : "bg-background text-muted-foreground"
-                  }`}
+
+          {refreshing && events.length === 0 ? (
+            <div className="grid grid-cols-7">
+              {Array.from({ length: 35 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="min-h-[4.25rem] border-b border-r border-border p-1.5 sm:min-h-[5.25rem]"
                 >
-                  <span
-                    className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
-                      isToday
-                        ? "bg-accent text-white"
-                        : selected
-                          ? "text-accent"
-                          : "text-foreground"
+                  <SkeletonBlock className="mb-1 h-5 w-5 rounded-full" />
+                  <SkeletonBlock className="mb-0.5 h-3 w-full" />
+                  <SkeletonBlock className="h-3 w-[75%]" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-7">
+              {cells.map(({ date, inMonth }) => {
+                const key = dateKey(date);
+                const list = eventsByDay.get(key) ?? [];
+                const selected = sameDay(date, selectedDay);
+                const isToday = sameDay(date, today);
+                const overflow = list.length - MAX_CHIPS;
+                return (
+                  <div
+                    key={key}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onDayClick(date)}
+                    onDoubleClick={(e) => {
+                      e.preventDefault();
+                      openCreate(date);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onDayClick(date);
+                      }
+                    }}
+                    className={`group relative min-h-[4.25rem] cursor-pointer border-b border-r border-border p-1 text-left transition-colors sm:min-h-[5.5rem] sm:p-1.5 ${
+                      selected
+                        ? "bg-accent-soft/50 ring-1 ring-inset ring-accent/30"
+                        : inMonth
+                          ? "bg-card hover:bg-surface/70"
+                          : "bg-background/80 text-muted-foreground"
                     }`}
                   >
-                    {date.getDate()}
-                  </span>
-                  <div className="mt-1 space-y-0.5">
-                    {list.slice(0, 3).map((ev) => {
-                      const badge = visibilityBadge(ev, userId);
-                      return (
-                        <div
-                          key={ev.id}
-                          className={`truncate rounded-md px-1 py-0.5 text-[10px] font-semibold ${
-                            ev.visibility === "shared"
-                              ? "bg-accent text-white"
-                              : ev.visibility === "pending"
-                                ? "bg-warning-soft text-warning"
-                                : "bg-surface text-muted ring-1 ring-border"
-                          }`}
-                          title={`${ev.title} · ${badge.label}`}
+                    <div className="flex items-center justify-between gap-0.5">
+                      <span
+                        className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold sm:h-7 sm:w-7 sm:text-xs ${
+                          isToday
+                            ? "bg-accent text-white shadow-[var(--shadow-sm)]"
+                            : selected
+                              ? "font-bold text-accent"
+                              : inMonth
+                                ? "text-foreground"
+                                : "text-muted-foreground"
+                        }`}
+                      >
+                        {date.getDate()}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`Add event on ${key}`}
+                        className="flex h-5 w-5 items-center justify-center rounded-md text-muted opacity-0 transition-opacity hover:bg-accent-soft hover:text-accent group-hover:opacity-100 focus:opacity-100 sm:h-6 sm:w-6"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openCreate(date);
+                        }}
+                      >
+                        <span className="text-sm font-bold leading-none">+</span>
+                      </button>
+                    </div>
+                    <div className="mt-0.5 space-y-0.5">
+                      {list.slice(0, MAX_CHIPS).map((ev) => {
+                        const t = formatChipTime(ev);
+                        return (
+                          <div
+                            key={ev.id}
+                            className={`truncate rounded px-1 py-px text-[9px] font-semibold leading-4 sm:text-[10px] sm:leading-[1.15rem] ${chipClass(
+                              ev.visibility,
+                              ev.event_type
+                            )}`}
+                            title={`${ev.title} · ${visibilityBadge(ev, userId).label}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedDay(date);
+                              if (ev.created_by === userId) openEdit(ev);
+                            }}
+                          >
+                            {t ? (
+                              <span className="mr-0.5 font-medium opacity-80">{t}</span>
+                            ) : null}
+                            {ev.title}
+                          </div>
+                        );
+                      })}
+                      {overflow > 0 ? (
+                        <button
+                          type="button"
+                          className="w-full truncate rounded px-1 py-px text-left text-[9px] font-semibold text-muted hover:bg-surface sm:text-[10px]"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedDay(date);
+                          }}
                         >
-                          {ev.title}
-                        </div>
-                      );
-                    })}
-                    {list.length > 3 ? (
-                      <p className="text-[10px] font-medium text-muted">
-                        +{list.length - 3} more
-                      </p>
-                    ) : null}
+                          +{overflow} more
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
-                </button>
-              );
-            })}
+                );
+              })}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border bg-surface/50 px-3 py-2 text-[10px] text-muted sm:px-4 sm:text-[11px]">
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2 w-2 rounded-sm bg-accent" /> Shared
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2 w-2 rounded-sm bg-amber-300" /> Pending
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2 w-2 rounded-sm bg-slate-300" /> Private
+            </span>
+            <span className="hidden sm:inline">·</span>
+            <span className="w-full sm:w-auto">
+              Click a day to select; click again or + to create with that date. Private stays off the co-parent&apos;s view until accepted.
+            </span>
           </div>
-          <p className="border-t border-border px-4 py-2.5 text-xs text-muted sm:px-5">
-            Double-click a day to add an event. Private chips stay off the
-            co-parent&apos;s view until they accept a proposal.
-          </p>
         </section>
 
-        <div className="space-y-5">
-          <section className="rounded-3xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
+        <div className="space-y-4">
+          <section className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-sm)] sm:p-5">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-base font-semibold text-foreground">
+              <h2 className="text-sm font-semibold text-foreground sm:text-base">
                 {selectedDay.toLocaleDateString(undefined, {
                   weekday: "long",
                   month: "short",
@@ -638,7 +820,7 @@ export function CalendarPanel({
               </button>
             </div>
             {dayEvents.length === 0 ? (
-              <p className="mt-3 text-sm text-muted">No events on this day.</p>
+              <EmptyIllustration label="No events on this day. Click Add to create one." />
             ) : (
               <ul className="mt-3 space-y-2">
                 {dayEvents.map((event) => {
@@ -647,7 +829,13 @@ export function CalendarPanel({
                   return (
                     <li
                       key={event.id}
-                      className="rounded-2xl border border-border bg-background px-3.5 py-3"
+                      className={`rounded-xl border border-border bg-background px-3 py-2.5 sm:px-3.5 sm:py-3 border-l-[3px] ${
+                        event.visibility === "shared"
+                          ? "border-l-accent"
+                          : event.visibility === "pending"
+                            ? "border-l-warning"
+                            : "border-l-slate-300"
+                      }`}
                     >
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div className="min-w-0">
@@ -655,7 +843,7 @@ export function CalendarPanel({
                             {event.title}
                             {event.source === "google" ? (
                               <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-muted">
-                                Google · private until proposed
+                                Google
                               </span>
                             ) : null}
                           </p>
@@ -754,9 +942,7 @@ export function CalendarPanel({
                             </button>
                           </>
                         ) : (
-                          <p className="text-xs text-muted">
-                            Shared by co-parent
-                          </p>
+                          <p className="text-xs text-muted">Shared by co-parent</p>
                         )}
                       </div>
                     </li>
@@ -766,21 +952,21 @@ export function CalendarPanel({
             )}
           </section>
 
-          <section className="rounded-3xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
-            <h2 className="text-base font-semibold text-foreground">
+          <section className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-sm)] sm:p-5">
+            <h2 className="text-sm font-semibold text-foreground sm:text-base">
               Upcoming shared
             </h2>
             {upcomingShared.length === 0 ? (
-              <p className="mt-2 text-sm text-muted">
-                No shared events yet. Create a parenting-time event, propose it,
-                and have the co-parent accept.
-              </p>
+              <EmptyIllustration label="No shared events yet. Create one, propose it, and have the co-parent accept." />
             ) : (
               <ul className="mt-3 space-y-2">
                 {upcomingShared.map((event) => (
-                  <li key={event.id} className="text-sm">
-                    <p className="font-semibold text-foreground">{event.title}</p>
-                    <p className="text-xs text-muted">{formatEventWhen(event)}</p>
+                  <li key={event.id} className="flex gap-2 text-sm">
+                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-accent" />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-foreground">{event.title}</p>
+                      <p className="text-xs text-muted">{formatEventWhen(event)}</p>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -788,19 +974,21 @@ export function CalendarPanel({
           </section>
 
           {myPrivateUpcoming.length > 0 ? (
-            <section className="rounded-3xl border border-dashed border-border bg-surface p-5">
-              <h2 className="text-base font-semibold text-foreground">
+            <section className="rounded-2xl border border-dashed border-border bg-surface/80 p-4 sm:p-5">
+              <h2 className="text-sm font-semibold text-foreground sm:text-base">
                 Your private upcoming
               </h2>
               <p className="mt-1 text-xs text-muted">
-                Only you can see these. Co-parent sees nothing until they accept
-                a proposal.
+                Only you can see these until a proposal is accepted.
               </p>
               <ul className="mt-3 space-y-2">
                 {myPrivateUpcoming.map((event) => (
-                  <li key={event.id} className="text-sm">
-                    <p className="font-semibold text-foreground">{event.title}</p>
-                    <p className="text-xs text-muted">{formatEventWhen(event)}</p>
+                  <li key={event.id} className="flex gap-2 text-sm">
+                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-slate-300" />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-foreground">{event.title}</p>
+                      <p className="text-xs text-muted">{formatEventWhen(event)}</p>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -825,33 +1013,34 @@ export function CalendarPanel({
           />
           <form
             onSubmit={(e) => void onSubmit(e)}
-            className="relative z-10 max-h-[min(92vh,720px)] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-border bg-card p-5 shadow-[var(--shadow-lg)] sm:mx-4 sm:rounded-3xl sm:p-6"
+            className="relative z-10 max-h-[min(92vh,760px)] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-border bg-card shadow-[var(--shadow-lg)] sm:mx-4 sm:rounded-2xl"
           >
-            <div className="flex items-start justify-between gap-3">
-              <div>
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-border bg-card/95 px-4 py-3.5 backdrop-blur sm:px-5">
+              <div className="min-w-0">
                 <h2
                   id="event-editor-title"
-                  className="text-xl font-semibold tracking-tight text-foreground"
+                  className="text-lg font-semibold tracking-tight text-foreground sm:text-xl"
                 >
                   {editingId ? "Edit event" : "New event"}
                 </h2>
-                <p className="mt-1 text-xs leading-5 text-muted">
-                  New events start private (including Google imports). Propose
-                  to household only when you want the co-parent to review and
-                  accept. Nothing syncs as shared automatically.
+                <p className="mt-0.5 text-xs text-muted">
+                  {editingId
+                    ? "Changes keep the current visibility."
+                    : "Starts private. Propose only when you want co-parent review."}
                 </p>
               </div>
               <button
                 type="button"
-                className={secondaryBtn}
+                className={ghostBtn}
                 disabled={busy}
                 onClick={() => setEditorOpen(false)}
+                aria-label="Close"
               >
-                Close
+                ✕
               </button>
             </div>
 
-            <div className="mt-4 space-y-3.5">
+            <div className="space-y-4 px-4 py-4 sm:px-5 sm:py-5">
               <label className="block space-y-1.5">
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted">
                   Title
@@ -865,32 +1054,49 @@ export function CalendarPanel({
                   }
                   className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground shadow-[var(--shadow-sm)] focus:border-accent focus:outline-none focus:ring-2 focus:ring-[var(--accent-ring)]"
                   placeholder="e.g. Parenting time exchange"
+                  autoFocus
                 />
               </label>
 
-              <label className="block space-y-1.5">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted">
-                  Type
-                </span>
-                <select
-                  value={form.eventType}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      eventType: e.target.value as CalendarEventType,
-                    }))
-                  }
-                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground shadow-[var(--shadow-sm)] focus:border-accent focus:outline-none focus:ring-2 focus:ring-[var(--accent-ring)]"
-                >
-                  {EVENT_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {EVENT_TYPE_LABELS[t]}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block space-y-1.5 sm:col-span-1">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+                    Type
+                  </span>
+                  <select
+                    value={form.eventType}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        eventType: e.target.value as CalendarEventType,
+                      }))
+                    }
+                    className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground shadow-[var(--shadow-sm)] focus:border-accent focus:outline-none focus:ring-2 focus:ring-[var(--accent-ring)]"
+                  >
+                    {EVENT_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {EVENT_TYPE_LABELS[t]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="block space-y-1.5">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+                    Location
+                  </span>
+                  <LocationInput
+                    value={form.location}
+                    disabled={busy}
+                    onChange={(location) => setForm((f) => ({ ...f, location }))}
+                    className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground shadow-[var(--shadow-sm)] focus:border-accent focus:outline-none focus:ring-2 focus:ring-[var(--accent-ring)]"
+                  />
+                </div>
+              </div>
 
-              <div className="rounded-2xl border border-border bg-surface/60 p-3.5">
+              <div className="rounded-xl border border-border bg-surface/50 p-3 sm:p-3.5">
+                <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted">
+                  When
+                </p>
                 <EventDateTimeFields
                   value={form.when}
                   disabled={busy}
@@ -900,58 +1106,70 @@ export function CalendarPanel({
 
               <label className="block space-y-1.5">
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted">
-                  Location
-                </span>
-                <LocationInput
-                  value={form.location}
-                  disabled={busy}
-                  onChange={(location) => setForm((f) => ({ ...f, location }))}
-                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground shadow-[var(--shadow-sm)] focus:border-accent focus:outline-none focus:ring-2 focus:ring-[var(--accent-ring)]"
-                />
-              </label>
-
-              <label className="block space-y-1.5">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted">
                   Description
                 </span>
                 <textarea
                   maxLength={5000}
-                  rows={3}
+                  rows={2}
                   value={form.description}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, description: e.target.value }))
                   }
                   className="w-full resize-y rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground shadow-[var(--shadow-sm)] focus:border-accent focus:outline-none focus:ring-2 focus:ring-[var(--accent-ring)]"
-                  placeholder="Optional notes"
+                  placeholder="Optional notes for yourself or the household"
                 />
               </label>
 
               {!editingId ? (
-                <label className="flex items-start gap-2.5 rounded-2xl border border-border bg-surface px-3.5 py-3 text-sm text-foreground">
-                  <input
-                    type="checkbox"
-                    checked={form.proposeOnCreate}
-                    onChange={(e) =>
-                      setForm((f) => ({
-                        ...f,
-                        proposeOnCreate: e.target.checked,
-                      }))
-                    }
-                    className="mt-0.5 h-4 w-4 rounded border-border"
-                  />
-                  <span>
-                    <span className="font-semibold">Propose to household now</span>
-                    <span className="mt-0.5 block text-xs leading-5 text-muted">
-                      Starts as {VISIBILITY_LABELS.pending}. Co-parent must
-                      accept before it appears on the shared calendar. Leave
-                      unchecked to keep it {VISIBILITY_LABELS.private}.
-                    </span>
-                  </span>
-                </label>
+                <fieldset className="space-y-2">
+                  <legend className="text-xs font-semibold uppercase tracking-wide text-muted">
+                    Visibility
+                  </legend>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() =>
+                        setForm((f) => ({ ...f, proposeOnCreate: false }))
+                      }
+                      className={`rounded-xl border px-3.5 py-3 text-left transition-colors ${
+                        !form.proposeOnCreate
+                          ? "border-accent bg-accent-soft/50 ring-1 ring-accent/30"
+                          : "border-border bg-background hover:bg-surface"
+                      }`}
+                    >
+                      <span className="block text-sm font-semibold text-foreground">
+                        Private
+                      </span>
+                      <span className="mt-0.5 block text-[11px] leading-4 text-muted">
+                        Only you can see this. Co-parent sees nothing until you propose.
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() =>
+                        setForm((f) => ({ ...f, proposeOnCreate: true }))
+                      }
+                      className={`rounded-xl border px-3.5 py-3 text-left transition-colors ${
+                        form.proposeOnCreate
+                          ? "border-amber-400 bg-warning-soft ring-1 ring-amber-300/50"
+                          : "border-border bg-background hover:bg-surface"
+                      }`}
+                    >
+                      <span className="block text-sm font-semibold text-foreground">
+                        Propose
+                      </span>
+                      <span className="mt-0.5 block text-[11px] leading-4 text-muted">
+                        Sends a share request. Shared only after they accept — never automatic.
+                      </span>
+                    </button>
+                  </div>
+                </fieldset>
               ) : null}
             </div>
 
-            <div className="mt-5 flex flex-wrap justify-end gap-2">
+            <div className="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t border-border bg-card/95 px-4 py-3 backdrop-blur sm:px-5">
               {editingId ? (
                 <button
                   type="button"
@@ -962,6 +1180,9 @@ export function CalendarPanel({
                   Delete
                 </button>
               ) : null}
+              <button type="button" className={secondaryBtn} disabled={busy} onClick={() => setEditorOpen(false)}>
+                Cancel
+              </button>
               <button type="submit" className={primaryBtn} disabled={busy}>
                 {busy ? "Saving…" : editingId ? "Save changes" : "Create event"}
               </button>

@@ -98,22 +98,40 @@ export function LocationInput({ value, onChange, disabled, className }: Props) {
     autocomplete.addListener("place_changed", listener);
   }, [mapsReady, onChange]);
 
+  const placesLive = Boolean(apiKey && mapsReady && !mapsFailed);
+
   return (
     <div className="space-y-1">
-      <input
-        ref={inputRef}
-        maxLength={300}
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-        className={className}
-        placeholder={
-          apiKey && mapsReady
-            ? "Start typing an address…"
-            : "Optional address or place"
-        }
-        autoComplete="off"
-      />
+      <div className="relative">
+        <span
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+          aria-hidden
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 21s-6-5.33-6-10a6 6 0 1112 0c0 4.67-6 10-6 10z" />
+            <circle cx="12" cy="11" r="2.25" />
+          </svg>
+        </span>
+        <input
+          ref={inputRef}
+          maxLength={300}
+          value={value}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value)}
+          className={`${className ?? ""} pl-9`}
+          placeholder={
+            placesLive
+              ? "Search address or place…"
+              : "Optional address or place"
+          }
+          autoComplete="off"
+        />
+        {placesLive ? (
+          <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded bg-accent-soft px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-accent">
+            Places
+          </span>
+        ) : null}
+      </div>
       {!apiKey ? (
         <p className="text-[11px] leading-4 text-muted">
           Tip: add{" "}
