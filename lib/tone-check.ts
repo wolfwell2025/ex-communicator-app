@@ -401,8 +401,8 @@ function systemPrompt(objective?: ToneObjective): string {
     "You MUST ground the rewrite in the provided household context when present: " +
     "cite the last relevant message (quote a short fragment + date), name calendar events, " +
     "shared documents, or call logs when those lists have real items. " +
-    "If a context section is marked as a module stub / empty, do not invent fake titles— " +
-    "invite the co-parent to confirm which calendar event, document, or call is meant. " +
+    "If a context section is empty, do NOT invent fake titles, dates, or summaries. " +
+    "Only cite items that appear in the context lists. " +
     "Never include insults, threats, or contempt." +
     objectiveHint
   );

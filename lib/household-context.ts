@@ -1,7 +1,7 @@
 /**
  * Household context for tone coaching rewrites.
- * Messages are live; calendar / documents / calls are stubbed until those
- * modules ship tables. Hooks below accept real rows when available.
+ * Messages are live; calendar / documents / calls stay empty until those
+ * modules ship tables. Prefer empty/real over fabricated demo rows.
  */
 
 export type ContextMessage = {
@@ -25,6 +25,8 @@ export type ContextDocument = {
   title: string;
   kind?: string | null;
   updatedAt?: string | null;
+  amount?: string | number | null;
+  snippet?: string | null;
 };
 
 export type ContextCallLog = {
@@ -46,7 +48,7 @@ export type ReferenceKind = "message" | "calendar" | "document" | "call";
 export const REFERENCE_CHIPS: Array<{
   id: ReferenceKind;
   label: string;
-  /** True when the backing module is still a placeholder. */
+  /** True when the backing module has no live DB table yet. */
   stub: boolean;
 }> = [
   { id: "message", label: "Reference last message", stub: false },
@@ -98,7 +100,7 @@ export function formatContextForPrompt(ctx: HouseholdToneContext): string {
     }
   } else {
     lines.push(
-      "Calendar events: (module stub — no live events yet; if citing calendar, ask to confirm the specific event on /app/calendar)"
+      "Calendar events: (empty — no live events; do not invent titles or dates)"
     );
   }
 
@@ -112,7 +114,7 @@ export function formatContextForPrompt(ctx: HouseholdToneContext): string {
     }
   } else {
     lines.push(
-      "Documents: (module stub — no vault rows yet; if citing a document, ask which order/receipt on /app/documents)"
+      "Documents: (empty — no vault rows; do not invent document titles)"
     );
   }
 
@@ -124,7 +126,7 @@ export function formatContextForPrompt(ctx: HouseholdToneContext): string {
     }
   } else {
     lines.push(
-      "Call logs: (module stub — no call records yet; if citing a call, refer to the most recent discussion in general terms and invite confirmation)"
+      "Call logs: (empty — no call records; do not invent call summaries)"
     );
   }
 
@@ -141,7 +143,11 @@ export function lastOtherMessage(
   return msgs.length > 0 ? msgs[msgs.length - 1] : null;
 }
 
-/** Insertable grounded phrasing for UI reference chips. */
+/**
+ * @deprecated Prefer the Reference picker + /api/reference-generate so the
+ * user confirms facts before a message is drafted. Kept for tone-check
+ * fallbacks that already have live context.
+ */
 export function referenceSnippet(
   kind: ReferenceKind,
   ctx: HouseholdToneContext
@@ -152,38 +158,34 @@ export function referenceSnippet(
       if (last) {
         return `Regarding your message from ${formatWhen(last.createdAt)} ("${clip(last.body, 90)}"): `;
       }
-      return "Regarding our last message in this thread: ";
+      return "";
     }
     case "calendar": {
       const event = ctx.calendarEvents?.[0];
-      if (event) {
+      if (event?.title?.trim() && event.startsAt) {
         return `Regarding the calendar event "${event.title}" on ${formatWhen(event.startsAt)}: `;
       }
-      return "Regarding the shared custody calendar (please confirm the specific event on Calendar): ";
+      return "";
     }
     case "document": {
       const doc = ctx.documents?.[0];
-      if (doc) {
+      if (doc?.title?.trim()) {
         return `Regarding the shared document "${doc.title}"${doc.kind ? ` (${doc.kind})` : ""}: `;
       }
-      return "Regarding the document in our shared vault (please confirm which file on Documents): ";
+      return "";
     }
     case "call": {
       const call = ctx.callLogs?.[0];
-      if (call) {
+      if (call?.occurredAt && call.summary?.trim()) {
         return `Following up on our call from ${formatWhen(call.occurredAt)} (${clip(call.summary, 80)}): `;
       }
-      return "Following up on our recent call/discussion (please confirm the date if needed): ";
+      return "";
     }
     default:
       return "";
   }
 }
 
-/**
- * Future data loaders — real queries can replace these stubs without changing
- * the tone API shape. Today messages come from the client; others return [].
- */
 export async function loadCalendarContextStub(
   _householdId: string
 ): Promise<ContextCalendarEvent[]> {
@@ -227,10 +229,35 @@ export function buildClientToneContext(args: {
       (m.sender_id === args.userId ? "Me" : "Co-parent"),
   }));
 
+  /** Full thread for the reference picker (not just last 8). */
   return {
     recentMessages,
     calendarEvents: args.calendarEvents ?? [],
     documents: args.documents ?? [],
     callLogs: args.callLogs ?? [],
   };
+}
+
+/** Map all thread messages into picker/context rows (accurate, no stubs). */
+export function messagesToContextRows(
+  messages: Array<{
+    id: string;
+    body: string;
+    created_at: string;
+    sender_id: string;
+    sender_email: string | null;
+    sender_display_name: string | null;
+  }>,
+  userId: string
+): ContextMessage[] {
+  return messages.map((m) => ({
+    id: m.id,
+    body: m.body,
+    createdAt: m.created_at,
+    mine: m.sender_id === userId,
+    senderLabel:
+      m.sender_display_name ??
+      m.sender_email ??
+      (m.sender_id === userId ? "Me" : "Co-parent"),
+  }));
 }

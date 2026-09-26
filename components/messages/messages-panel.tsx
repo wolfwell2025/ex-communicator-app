@@ -6,8 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { formatTranscript } from "@/lib/households";
 import {
   buildClientToneContext,
+  messagesToContextRows,
   REFERENCE_CHIPS,
-  referenceSnippet,
   type ReferenceKind,
 } from "@/lib/household-context";
 import {
@@ -16,7 +16,9 @@ import {
   TONE_OBJECTIVES,
   type ToneObjective,
 } from "@/lib/tone-check";
+import type { FactLine } from "@/lib/reference-generate";
 import type { MessageWithSender } from "@/lib/types";
+import { ReferencePicker } from "@/components/messages/reference-picker";
 
 type ToneCoach = {
   severity?: string;
@@ -74,6 +76,11 @@ export function MessagesPanel({
   const [flagCount, setFlagCount] = useState(0);
   const [objective, setObjective] = useState<ToneObjective | null>(null);
   const [objectiveLoading, setObjectiveLoading] = useState(false);
+  const [pickerKind, setPickerKind] = useState<ReferenceKind | null>(null);
+  const [referenceSuggestion, setReferenceSuggestion] = useState<{
+    text: string;
+    facts: FactLine[];
+  } | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const toneRequestId = useRef(0);
   const lastFlaggedTextRef = useRef<string | null>(null);
@@ -85,11 +92,16 @@ export function MessagesPanel({
       buildClientToneContext({
         messages,
         userId,
-        // Stubs until calendar / documents / calls tables exist:
+        // Real DB only — empty until calendar / documents / calls tables exist:
         calendarEvents: [],
         documents: [],
         callLogs: [],
       }),
+    [messages, userId]
+  );
+
+  const pickerMessages = useMemo(
+    () => messagesToContextRows(messages, userId),
     [messages, userId]
   );
 
@@ -240,6 +252,7 @@ export function MessagesPanel({
     lastFlaggedTextRef.current = null;
     setFlagCount(0);
     setObjective(null);
+    setReferenceSuggestion(null);
   }
 
   async function onSend(event: FormEvent<HTMLFormElement>) {
@@ -284,18 +297,29 @@ export function MessagesPanel({
     setError(null);
   }
 
+  function useReferenceSuggestion() {
+    if (!referenceSuggestion?.text) return;
+    const suggestion = referenceSuggestion.text;
+    setBody(suggestion);
+    setReferenceSuggestion(null);
+    setToneDismissedFor(suggestion.trim());
+    setError(null);
+  }
+
   function dismissToneCoach() {
     setToneDismissedFor(body.trim());
     setToneCoach(null);
   }
 
-  function applyReferenceChip(kind: ReferenceKind) {
-    const snippet = referenceSnippet(kind, toneContext);
-    setBody((prev) => {
-      const next = prev.trim().length === 0 ? snippet : `${snippet}${prev}`;
-      return next.slice(0, 10000);
-    });
+  function openReferencePicker(kind: ReferenceKind) {
+    setPickerKind(kind);
+    setError(null);
+  }
+
+  function onReferenceGenerated(suggestion: string, facts: FactLine[]) {
+    setReferenceSuggestion({ text: suggestion, facts });
     setToneDismissedFor(null);
+    setError(null);
   }
 
   async function chooseObjective(next: ToneObjective) {
@@ -303,6 +327,8 @@ export function MessagesPanel({
     setObjectiveLoading(true);
     setError(null);
     setToneDismissedFor(null);
+    const calmFallback =
+      "I'd like to keep this focused on the kids and next steps. Can we address the specific issue calmly?";
     try {
       const res = await fetch("/api/tone-check", {
         method: "POST",
@@ -317,8 +343,7 @@ export function MessagesPanel({
         setToneCoach({
           severity: "high",
           warning: escalatedWarning(),
-          suggestion: referenceSnippet("message", toneContext) +
-            "I'd like to keep this focused on the kids and next steps. Can we address the specific issue calmly?",
+          suggestion: calmFallback,
         });
         return;
       }
@@ -330,18 +355,13 @@ export function MessagesPanel({
       setToneCoach({
         severity: data.severity ?? "high",
         warning: escalatedWarning(),
-        suggestion:
-          data.suggestion ||
-          referenceSnippet("message", toneContext) +
-            "I'd like to keep this focused on the kids and next steps.",
+        suggestion: data.suggestion || calmFallback,
       });
     } catch {
       setToneCoach({
         severity: "high",
         warning: escalatedWarning(),
-        suggestion:
-          referenceSnippet("message", toneContext) +
-          "I'd like to keep this focused on the kids and next steps.",
+        suggestion: calmFallback,
       });
     } finally {
       setObjectiveLoading(false);
@@ -481,10 +501,10 @@ export function MessagesPanel({
               className={chipBtn}
               title={
                 chip.stub
-                  ? "Module coming soon — inserts grounded placeholder phrasing"
-                  : "Insert a reference to the latest thread message"
+                  ? "Opens picker — empty until that module has real data"
+                  : "Pick a real thread message, confirm facts, then generate"
               }
-              onClick={() => applyReferenceChip(chip.id)}
+              onClick={() => openReferencePicker(chip.id)}
             >
               {chip.label}
               {chip.stub ? (
@@ -530,6 +550,45 @@ export function MessagesPanel({
           </button>
         </div>
 
+        {referenceSuggestion ? (
+          <div
+            className="mt-3 rounded-2xl border border-border bg-accent-soft/40 px-4 py-3.5 shadow-[var(--shadow-sm)]"
+            role="status"
+            aria-live="polite"
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+              Generated from selected record
+            </p>
+            {referenceSuggestion.facts.length > 0 ? (
+              <p className="mt-1 text-xs leading-5 text-muted">
+                Cited:{" "}
+                {referenceSuggestion.facts
+                  .map((f) => `${f.label}`)
+                  .join(", ")}
+              </p>
+            ) : null}
+            <p className="mt-1.5 text-sm leading-6 text-foreground whitespace-pre-wrap">
+              {referenceSuggestion.text}
+            </p>
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={useReferenceSuggestion}
+                className="inline-flex items-center justify-center rounded-xl bg-accent px-3.5 py-2 text-sm font-semibold text-white shadow-[var(--shadow-sm)] transition-colors hover:bg-accent-hover"
+              >
+                Use suggestion
+              </button>
+              <button
+                type="button"
+                onClick={() => setReferenceSuggestion(null)}
+                className={secondaryBtn}
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {toneLoading && !toneCoach ? (
           <p className="mt-3 text-xs text-muted" aria-live="polite">
             Checking tone…
@@ -567,9 +626,10 @@ export function MessagesPanel({
                       What are you trying to accomplish?
                     </p>
                     <p className="mt-1 text-xs leading-5 text-muted">
-                      Pick one so we can draft a court-appropriate message that
-                      cites your thread, calendar, documents, or calls when
-                      available. Send stays paused while the draft still looks
+                      Pick one so we can draft a court-appropriate message.
+                      Use Reference chips above to ground it in a real thread
+                      message (or calendar/docs/calls when those modules have
+                      data). Send stays paused while the draft still looks
                       hostile.
                     </p>
                     <div className="mt-2.5 flex flex-col gap-1.5">
@@ -622,17 +682,7 @@ export function MessagesPanel({
                           key={`coach-${chip.id}`}
                           type="button"
                           className={chipBtn}
-                          onClick={() => {
-                            const snippet = referenceSnippet(chip.id, toneContext);
-                            setToneCoach((prev) =>
-                              prev
-                                ? {
-                                    ...prev,
-                                    suggestion: `${snippet}${prev.suggestion.replace(/^(Regarding|Following up)[^:]*:\s*/i, "")}`,
-                                  }
-                                : prev
-                            );
-                          }}
+                          onClick={() => openReferencePicker(chip.id)}
                         >
                           {chip.label}
                         </button>
@@ -670,9 +720,22 @@ export function MessagesPanel({
           Sent messages are permanent for the household record.
           {softBlocked
             ? " Send is paused until you pick an objective or use a calm rewrite."
-            : " Tone coaching uses your thread (and calendar/docs/calls when available) to suggest grounded rewrites."}
+            : " Reference chips open a picker of real items only — empty modules show coming soon, never fake demos."}
         </p>
       </form>
+
+      {pickerKind ? (
+        <ReferencePicker
+          kind={pickerKind}
+          open={Boolean(pickerKind)}
+          onClose={() => setPickerKind(null)}
+          onGenerated={onReferenceGenerated}
+          messages={pickerMessages}
+          calendarEvents={[]}
+          documents={[]}
+          callLogs={[]}
+        />
+      ) : null}
     </div>
   );
 }
