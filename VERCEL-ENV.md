@@ -30,3 +30,17 @@ In the Supabase dashboard → **Authentication → URL Configuration**:
   - `https://ex-communicator-app.vercel.app/auth/confirm`
   - `http://localhost:3000/auth/callback`
   - `http://localhost:3000/auth/confirm`
+
+## Optional AI tone coaching
+
+Tone coaching works out of the box with a built-in heuristic rewrite. To use a
+real LLM for suggested rewrites, add **one** of these server-only secrets in
+Vercel (Production):
+
+| Name | Value |
+| --- | --- |
+| `OPENAI_API_KEY` | Your OpenAI API key (uses `gpt-4o-mini`) |
+| `ANTHROPIC_API_KEY` | Your Anthropic API key (uses Claude Haiku) |
+
+Never expose these as `NEXT_PUBLIC_*`. If neither key is set, `/api/tone-check`
+still returns a solid template rewrite.
