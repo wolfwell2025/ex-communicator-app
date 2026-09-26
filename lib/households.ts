@@ -98,7 +98,7 @@ export async function listMessages(
 ): Promise<{ messages: MessageWithSender[]; error: string | null }> {
   const { data, error } = await supabase
     .from("messages")
-    .select("id, household_id, sender_id, body, created_at")
+    .select("id, household_id, sender_id, body, created_at, thread_id")
     .eq("household_id", householdId)
     .order("created_at", { ascending: true });
 

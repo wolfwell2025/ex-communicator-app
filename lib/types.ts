@@ -27,11 +27,42 @@ export type Message = {
   sender_id: string;
   body: string;
   created_at: string;
+  thread_id: string | null;
 };
 
 export type MessageWithSender = Message & {
   sender_email: string | null;
   sender_display_name: string | null;
+};
+
+export type MessageThread = {
+  id: string;
+  household_id: string;
+  subject: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ThreadParticipant = {
+  thread_id: string;
+  user_id: string;
+  created_at: string;
+};
+
+export type HouseholdMemberProfile = {
+  user_id: string;
+  role: HouseholdRole;
+  email: string | null;
+  display_name: string | null;
+};
+
+export type ThreadListItem = MessageThread & {
+  participants: HouseholdMemberProfile[];
+  last_message: MessageWithSender | null;
+  message_count: number;
+  /** Lowercased bodies joined for client search. */
+  search_text: string;
 };
 
 export type CalendarEventType =

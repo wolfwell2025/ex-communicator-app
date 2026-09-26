@@ -15,7 +15,7 @@ Next.js App Router starter (TypeScript + Tailwind + ESLint) with Supabase Auth w
 | `/auth/callback` | OAuth / PKCE code exchange |
 | `/auth/confirm` | Email OTP / magic-link confirmation |
 | `/app` | Authenticated shell (requires session) |
-| `/app/messages` | Household messaging + transcript export |
+| `/app/messages` | Threaded messaging (subject, To, search) + transcript export |
 | `/app/calendar` | Shared custody calendar (private / propose / accept) |
 | `/app/documents` | Household document vault (upload / share / reference) |
 | `/app/expenses` | Expenses stub |
@@ -88,6 +88,7 @@ Open Supabase Dashboard → **SQL Editor** for project `pryvielnxaxylcxihgpk`. I
 3. [`supabase/migrations/003_household_invites.sql`](supabase/migrations/003_household_invites.sql) — co-parent email invites (`create_household_invite` / `accept_household_invite`).
 4. [`supabase/migrations/004_calendar_oauth_tokens.sql`](supabase/migrations/004_calendar_oauth_tokens.sql) — multi-calendar OAuth columns + imported-events-must-insert-private trigger.
 5. [`supabase/migrations/005_documents.sql`](supabase/migrations/005_documents.sql) — `documents` table + private Storage bucket `documents` with RLS.
+6. [`supabase/migrations/006_message_threads.sql`](supabase/migrations/006_message_threads.sql) — message threads (subjects, recipients, search). Migrates existing flat messages into a legacy "Household messages" thread.
 
 Confirm tables exist, then sign in and open `/app`, `/app/calendar`, `/app/messages`, and `/app/documents`.
 
@@ -113,11 +114,19 @@ On Dashboard or Calendar, use **Invite co-parent**: enter their email → Copy l
 
 Follow [`GOOGLE-SETUP.md`](GOOGLE-SETUP.md) for OAuth credentials, Maps key, env vars, and redirect URIs.
 
+### Messaging threads
+
+- **Subject** — each conversation has an OFW-style subject line.
+- **To** — multi-select household members (or Household for everyone). Solo households default to Household until a co-parent is invited.
+- **Search** — filters the thread list by subject, participants, and last-message preview.
+- Tone coaching, Reference pickers, Download transcript, and Print/PDF still work on the open thread.
+
 ## Next steps
 
 1. Finish Google Cloud OAuth + Places keys; run migration 004; connect multiple calendars.
 2. Run migration 005; upload a decree PDF; confirm Reference document in Messages.
-3. Expenses module.
+3. Run migration 006 for threaded subjects / recipients / search.
+4. Expenses module.
 
 ## Notes
 

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { MessagesPanel } from "@/components/messages/messages-panel";
-import { ensureHousehold, listMessages } from "@/lib/households";
+import { ensureHousehold } from "@/lib/households";
+import { listHouseholdMembers, listThreads } from "@/lib/messages";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function MessagesPage() {
@@ -34,23 +35,30 @@ export default async function MessagesPage() {
     );
   }
 
-  const { messages, error: messagesError } = await listMessages(
-    supabase,
-    household.id
-  );
+  const [
+    { threads, error: threadsError, needsMigration },
+    { members, error: membersError },
+  ] = await Promise.all([
+    listThreads(supabase, household.id),
+    listHouseholdMembers(supabase, household.id),
+  ]);
+
+  const loadError = threadsError && !needsMigration ? threadsError : membersError;
 
   return (
     <div className="space-y-4">
-      {messagesError ? (
+      {loadError ? (
         <p className="rounded-2xl border border-red-200 bg-danger-soft p-4 text-sm text-danger">
-          Could not load messages: {messagesError}
+          Could not load messages: {loadError}
         </p>
       ) : null}
       <MessagesPanel
         householdId={household.id}
         householdName={household.name}
         userId={user.id}
-        initialMessages={messages}
+        initialThreads={threads}
+        initialMembers={members}
+        needsMigration={needsMigration}
       />
     </div>
   );

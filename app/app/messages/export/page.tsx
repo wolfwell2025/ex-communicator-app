@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PrintButton } from "@/components/messages/print-button";
-import { ensureHousehold, listMessages } from "@/lib/households";
+import { ensureHousehold } from "@/lib/households";
+import { listThreads, listThreadMessages, memberLabel } from "@/lib/messages";
 import { createClient } from "@/lib/supabase/server";
 
 function formatTime(iso: string): string {
@@ -42,9 +43,21 @@ export default async function MessagesExportPage() {
     );
   }
 
-  const { messages, error: messagesError } = await listMessages(
+  const { threads, error: threadsError, needsMigration } = await listThreads(
     supabase,
     household.id
+  );
+
+  const threadsWithMessages = await Promise.all(
+    threads.map(async (thread) => {
+      const { messages } = await listThreadMessages(supabase, thread.id);
+      return { thread, messages };
+    })
+  );
+
+  const totalMessages = threadsWithMessages.reduce(
+    (n, t) => n + t.messages.length,
+    0
   );
   const exportedAt = new Date().toISOString();
 
@@ -56,7 +69,7 @@ export default async function MessagesExportPage() {
             Transcript export
           </h1>
           <p className="text-sm text-muted">
-            Print this page or save as PDF from your browser.
+            Print this page or save as PDF from your browser. Grouped by subject.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -69,6 +82,16 @@ export default async function MessagesExportPage() {
           <PrintButton />
         </div>
       </div>
+
+      {needsMigration ? (
+        <p className="rounded-2xl border border-amber-200 bg-warning-soft p-4 text-sm text-warning print:hidden">
+          Run{" "}
+          <code className="rounded bg-white px-1.5 py-0.5 text-xs text-foreground">
+            supabase/migrations/006_message_threads.sql
+          </code>{" "}
+          in the Supabase SQL Editor, then refresh for subject-grouped export.
+        </p>
+      ) : null}
 
       <article className="relative overflow-hidden rounded-3xl border border-border bg-card p-6 shadow-[var(--shadow-md)] print:border-0 print:shadow-none sm:p-8">
         <div
@@ -90,42 +113,72 @@ export default async function MessagesExportPage() {
           <p className="text-sm text-muted">
             Exported: {formatTime(exportedAt)} ({exportedAt})
           </p>
-          <p className="text-sm text-muted">{messages.length} message(s)</p>
+          <p className="text-sm text-muted">
+            {threads.length} thread(s) · {totalMessages} message(s)
+          </p>
         </header>
 
-        {messagesError ? (
-          <p className="relative mt-4 text-sm text-danger">{messagesError}</p>
+        {threadsError && !needsMigration ? (
+          <p className="relative mt-4 text-sm text-danger">{threadsError}</p>
         ) : null}
 
-        <ol className="relative mt-5 space-y-4">
-          {messages.length === 0 ? (
-            <li className="text-sm text-muted">No messages in this household.</li>
+        <div className="relative mt-5 space-y-8">
+          {threadsWithMessages.length === 0 ? (
+            <p className="text-sm text-muted">No threads in this household.</p>
           ) : (
-            messages.map((message, index) => {
-              const who =
-                message.sender_email ??
-                message.sender_display_name ??
-                message.sender_id;
+            threadsWithMessages.map(({ thread, messages }, threadIndex) => {
+              const toLabel = thread.participants
+                .filter((p) => p.user_id !== user.id)
+                .map(memberLabel)
+                .join(", ");
               return (
-                <li
-                  key={message.id}
-                  className="border-b border-border/70 pb-4 last:border-0"
-                >
-                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-muted">
-                    <span className="font-mono">#{index + 1}</span>
-                    <time dateTime={message.created_at}>
-                      {formatTime(message.created_at)}
-                    </time>
-                    <span className="font-medium text-foreground">{who}</span>
+                <section key={thread.id} className="space-y-3">
+                  <div className="border-b border-border pb-2">
+                    <h3 className="text-base font-semibold text-foreground">
+                      {threadIndex + 1}. {thread.subject}
+                    </h3>
+                    <p className="text-xs text-muted">
+                      To: {toLabel || "Household"}
+                      <span className="mx-1.5">·</span>
+                      {messages.length} message(s)
+                    </p>
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground">
-                    {message.body}
-                  </p>
-                </li>
+                  <ol className="space-y-4">
+                    {messages.length === 0 ? (
+                      <li className="text-sm text-muted">No messages.</li>
+                    ) : (
+                      messages.map((message, index) => {
+                        const who =
+                          message.sender_email ??
+                          message.sender_display_name ??
+                          message.sender_id;
+                        return (
+                          <li
+                            key={message.id}
+                            className="border-b border-border/70 pb-4 last:border-0"
+                          >
+                            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-muted">
+                              <span className="font-mono">#{index + 1}</span>
+                              <time dateTime={message.created_at}>
+                                {formatTime(message.created_at)}
+                              </time>
+                              <span className="font-medium text-foreground">
+                                {who}
+                              </span>
+                            </div>
+                            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground">
+                              {message.body}
+                            </p>
+                          </li>
+                        );
+                      })
+                    )}
+                  </ol>
+                </section>
               );
             })
           )}
-        </ol>
+        </div>
 
         <footer className="relative mt-8 border-t border-border pt-4 text-center text-xs text-muted">
           Ex Communicator export · {household.name} · {exportedAt}
