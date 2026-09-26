@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { LoginForm } from "@/components/login-form";
 
 export default function LoginPage() {
   return (
@@ -9,10 +11,10 @@ export default function LoginPage() {
             Ex Communicator
           </Link>
           <Link
-            href="/app"
+            href="/"
             className="text-sm font-medium text-muted hover:text-foreground"
           >
-            Skip to app shell
+            Back to home
           </Link>
         </div>
       </header>
@@ -21,37 +23,12 @@ export default function LoginPage() {
         <div className="rounded-xl border border-border bg-card p-8 shadow-sm">
           <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
           <p className="mt-2 text-sm leading-6 text-muted">
-            Sign-in is coming soon. This page is a placeholder until Supabase
-            Auth is wired up.
+            Use your email with a password, or get a one-time magic link.
           </p>
 
-          <form className="mt-6 space-y-4" aria-disabled="true">
-            <label className="block space-y-1.5">
-              <span className="text-sm font-medium">Email</span>
-              <input
-                type="email"
-                disabled
-                placeholder="you@example.com"
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted"
-              />
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-sm font-medium">Password</span>
-              <input
-                type="password"
-                disabled
-                placeholder="••••••••"
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted"
-              />
-            </label>
-            <button
-              type="button"
-              disabled
-              className="w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white opacity-60"
-            >
-              Sign in (coming soon)
-            </button>
-          </form>
+          <Suspense fallback={<p className="mt-6 text-sm text-muted">Loading...</p>}>
+            <LoginForm />
+          </Suspense>
 
           <p className="mt-6 text-center text-sm text-muted">
             <Link href="/" className="text-accent hover:underline">

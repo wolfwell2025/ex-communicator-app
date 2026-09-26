@@ -58,16 +58,16 @@ export default function HomePage() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
-              href="/app"
+              href="/login"
               className="rounded-lg bg-accent px-5 py-3 text-sm font-medium text-white hover:bg-accent-hover"
             >
-              View dashboard shell
+              Get started
             </Link>
             <Link
               href="/login"
               className="rounded-lg border border-border bg-card px-5 py-3 text-sm font-medium text-foreground hover:bg-background"
             >
-              Sign in (coming soon)
+              Sign in
             </Link>
           </div>
         </section>

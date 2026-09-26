@@ -29,9 +29,8 @@ export default function AppHomePage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-          Placeholder shell for the first product slice. Auth, Supabase, and
-          live data come next. Use the nav stubs below to walk the intended
-          structure.
+          You are signed in. Module stubs below are the intended first product
+          slice: messaging, calendar, documents, and expenses.
         </p>
       </div>
 
