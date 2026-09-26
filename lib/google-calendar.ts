@@ -9,10 +9,11 @@ import { getSiteUrl } from "./supabase/env";
  * and the co-parent accepts in-app. Never auto-share on connect/sync.
  */
 
-export const GOOGLE_CALENDAR_SCOPES = [
-  "https://www.googleapis.com/auth/calendar.readonly",
-  "https://www.googleapis.com/auth/userinfo.email",
-].join(" ");
+export {
+  GOOGLE_CALENDAR_SCOPES,
+  connectionHasWriteScope,
+} from "./google-calendar-scopes";
+import { GOOGLE_CALENDAR_SCOPES, connectionHasWriteScope } from "./google-calendar-scopes";
 
 export type GoogleTokenResponse = {
   access_token: string;
@@ -44,6 +45,7 @@ type ConnectionSecrets = {
   user_id: string;
   external_calendar_id: string | null;
   sync_enabled: boolean;
+  export_enabled?: boolean;
   status: string;
   access_token_enc: string | null;
   refresh_token_enc: string | null;
@@ -675,4 +677,312 @@ export async function pendingFromConnection(
       error: e instanceof Error ? e.message : "Token error",
     };
   }
+}
+
+/** Payload for creating/updating a Google Calendar event from an in-app row. */
+export type GoogleExportEvent = {
+  id: string;
+  title: string;
+  description: string | null;
+  starts_at: string;
+  ends_at: string;
+  all_day: boolean;
+  location: string | null;
+  external_id: string | null;
+  connection_id: string | null;
+  created_by: string;
+  visibility: string;
+  source: string;
+};
+
+function toGoogleEventBody(event: GoogleExportEvent): Record<string, unknown> {
+  const summary = event.title.slice(0, 200);
+  const description = event.description?.slice(0, 5000) || undefined;
+  const location = event.location?.slice(0, 300) || undefined;
+
+  if (event.all_day) {
+    const startDay = event.starts_at.slice(0, 10);
+    // Google all-day end is exclusive; add one day
+    const endInclusive = new Date(event.ends_at);
+    const endExclusive = new Date(
+      Date.UTC(
+        endInclusive.getUTCFullYear(),
+        endInclusive.getUTCMonth(),
+        endInclusive.getUTCDate() + 1
+      )
+    );
+    const endDay = endExclusive.toISOString().slice(0, 10);
+    return {
+      summary,
+      description,
+      location,
+      start: { date: startDay },
+      end: { date: endDay },
+    };
+  }
+
+  return {
+    summary,
+    description,
+    location,
+    start: { dateTime: new Date(event.starts_at).toISOString() },
+    end: { dateTime: new Date(event.ends_at).toISOString() },
+  };
+}
+
+async function googleUpsertEvent(
+  accessToken: string,
+  calendarId: string,
+  event: GoogleExportEvent,
+  existingGoogleId: string | null
+): Promise<string> {
+  const encodedCal = encodeURIComponent(calendarId);
+  const body = toGoogleEventBody(event);
+
+  if (existingGoogleId) {
+    const encodedEv = encodeURIComponent(existingGoogleId);
+    const res = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/${encodedCal}/events/${encodedEv}`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      }
+    );
+    const json = (await res.json()) as { id?: string; error?: { message?: string } };
+    if (res.ok && json.id) return json.id;
+    // Fall through to create if event was deleted on Google
+    if (res.status !== 404) {
+      throw new Error(json.error?.message || `Google update failed (${res.status})`);
+    }
+  }
+
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodedCal}/events`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    }
+  );
+  const json = (await res.json()) as { id?: string; error?: { message?: string } };
+  if (!res.ok || !json.id) {
+    throw new Error(json.error?.message || `Google create failed (${res.status})`);
+  }
+  return json.id;
+}
+
+async function googleDeleteEvent(
+  accessToken: string,
+  calendarId: string,
+  googleEventId: string
+): Promise<void> {
+  const encodedCal = encodeURIComponent(calendarId);
+  const encodedEv = encodeURIComponent(googleEventId);
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodedCal}/events/${encodedEv}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+  if (res.status === 404 || res.status === 410) return;
+  if (!res.ok) {
+    const json = (await res.json().catch(() => ({}))) as {
+      error?: { message?: string };
+    };
+    throw new Error(json.error?.message || `Google delete failed (${res.status})`);
+  }
+}
+
+/**
+ * Push an app-owned event to the user's export-enabled Google calendars.
+ * MVP: only events where created_by = user and visibility in private|pending|shared.
+ * Never pushes another person's private events. source=google imports are skipped
+ * (they already live on Google).
+ */
+export async function exportEventToGoogle(args: {
+  supabase: SupabaseClient;
+  userId: string;
+  event: GoogleExportEvent;
+}): Promise<{ exported: number; googleEventId: string | null; error: string | null }> {
+  if (args.event.created_by !== args.userId) {
+    return { exported: 0, googleEventId: null, error: null };
+  }
+  if (!["private", "pending", "shared"].includes(args.event.visibility)) {
+    return { exported: 0, googleEventId: null, error: null };
+  }
+  // Do not re-push pure Google imports (would duplicate)
+  if (args.event.source === "google") {
+    return { exported: 0, googleEventId: null, error: null };
+  }
+
+  const { data: conns, error: connErr } = await args.supabase
+    .from("personal_calendar_connections")
+    .select(
+      "id, user_id, external_calendar_id, sync_enabled, export_enabled, status, access_token_enc, refresh_token_enc, token_expires_at, scopes"
+    )
+    .eq("user_id", args.userId)
+    .eq("provider", "google")
+    .eq("status", "connected")
+    .eq("export_enabled", true);
+
+  if (connErr) return { exported: 0, googleEventId: null, error: connErr.message };
+  if (!conns?.length) {
+    return { exported: 0, googleEventId: null, error: null };
+  }
+
+  let exported = 0;
+  let primaryGoogleId: string | null = args.event.external_id;
+  let primaryConnectionId: string | null = args.event.connection_id;
+  const errors: string[] = [];
+
+  for (const raw of conns) {
+    const conn = raw as ConnectionSecrets & { export_enabled?: boolean };
+    if (!conn.external_calendar_id) continue;
+    if (!connectionHasWriteScope(conn.scopes)) {
+      errors.push("Reconnect Google for two-way sync (write scope missing).");
+      continue;
+    }
+
+    let accessToken: string;
+    try {
+      accessToken = await getValidAccessToken(args.supabase, conn);
+    } catch (e) {
+      errors.push(e instanceof Error ? e.message : "Token error");
+      continue;
+    }
+
+    const existingId =
+      args.event.connection_id === conn.id ? args.event.external_id : null;
+
+    try {
+      const googleId = await googleUpsertEvent(
+        accessToken,
+        conn.external_calendar_id,
+        args.event,
+        existingId
+      );
+      exported += 1;
+      // Prefer storing link on first successful export connection
+      if (!primaryConnectionId || primaryConnectionId === conn.id) {
+        primaryGoogleId = googleId;
+        primaryConnectionId = conn.id;
+      }
+    } catch (e) {
+      errors.push(e instanceof Error ? e.message : "Export failed");
+    }
+  }
+
+  if (
+    exported > 0 &&
+    primaryGoogleId &&
+    primaryConnectionId &&
+    (primaryGoogleId !== args.event.external_id ||
+      primaryConnectionId !== args.event.connection_id)
+  ) {
+    await args.supabase
+      .from("calendar_events")
+      .update({
+        external_id: primaryGoogleId,
+        connection_id: primaryConnectionId,
+        // keep source=manual for app-originated
+      })
+      .eq("id", args.event.id)
+      .eq("created_by", args.userId);
+  }
+
+  return {
+    exported,
+    googleEventId: primaryGoogleId,
+    error: exported === 0 && errors.length ? errors[0] : null,
+  };
+}
+
+export async function deleteExportedGoogleEvent(args: {
+  supabase: SupabaseClient;
+  userId: string;
+  event: Pick<
+    GoogleExportEvent,
+    "external_id" | "connection_id" | "created_by" | "source"
+  >;
+}): Promise<{ error: string | null }> {
+  if (args.event.created_by !== args.userId) return { error: null };
+  if (args.event.source === "google") return { error: null };
+  if (!args.event.external_id || !args.event.connection_id) return { error: null };
+
+  const { data: conn } = await args.supabase
+    .from("personal_calendar_connections")
+    .select(
+      "id, user_id, external_calendar_id, sync_enabled, export_enabled, status, access_token_enc, refresh_token_enc, token_expires_at, scopes"
+    )
+    .eq("id", args.event.connection_id)
+    .eq("user_id", args.userId)
+    .maybeSingle();
+
+  if (!conn?.external_calendar_id) return { error: null };
+  if (!(conn as { export_enabled?: boolean }).export_enabled) return { error: null };
+  if (!connectionHasWriteScope(conn.scopes)) {
+    return { error: "Reconnect Google for two-way sync (write scope missing)." };
+  }
+
+  try {
+    const accessToken = await getValidAccessToken(
+      args.supabase,
+      conn as ConnectionSecrets
+    );
+    await googleDeleteEvent(
+      accessToken,
+      conn.external_calendar_id,
+      args.event.external_id
+    );
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Google delete failed" };
+  }
+  return { error: null };
+}
+
+export async function setConnectionExportEnabled(args: {
+  supabase: SupabaseClient;
+  userId: string;
+  connectionId: string;
+  exportEnabled: boolean;
+}): Promise<{ error: string | null }> {
+  const { error } = await args.supabase
+    .from("personal_calendar_connections")
+    .update({ export_enabled: args.exportEnabled })
+    .eq("id", args.connectionId)
+    .eq("user_id", args.userId);
+  return { error: error?.message ?? null };
+}
+
+/**
+ * Load event by id and push to Google if export is enabled.
+ */
+export async function exportEventById(args: {
+  supabase: SupabaseClient;
+  userId: string;
+  eventId: string;
+}): Promise<{ exported: number; error: string | null }> {
+  const { data, error } = await args.supabase
+    .from("calendar_events")
+    .select(
+      "id, title, description, starts_at, ends_at, all_day, location, external_id, connection_id, created_by, visibility, source"
+    )
+    .eq("id", args.eventId)
+    .maybeSingle();
+  if (error) return { exported: 0, error: error.message };
+  if (!data) return { exported: 0, error: "Event not found." };
+  const result = await exportEventToGoogle({
+    supabase: args.supabase,
+    userId: args.userId,
+    event: data as GoogleExportEvent,
+  });
+  return { exported: result.exported, error: result.error };
 }

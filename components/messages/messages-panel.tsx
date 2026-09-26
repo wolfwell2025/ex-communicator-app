@@ -43,6 +43,8 @@ import {
   type PickerCalendarItem,
   type PickerDocumentItem,
 } from "@/components/messages/reference-picker";
+import { SuggestionBanner } from "@/components/calendar/suggestion-banner";
+import type { CalendarSuggestion } from "@/lib/types";
 
 type ToneCoach = {
   severity?: string;
@@ -164,6 +166,7 @@ export function MessagesPanel({
   } | null>(null);
   const [calendarEvents, setCalendarEvents] = useState<PickerCalendarItem[]>([]);
   const [documents, setDocuments] = useState<PickerDocumentItem[]>([]);
+  const [suggestions, setSuggestions] = useState<CalendarSuggestion[]>([]);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const toneRequestId = useRef(0);
   const lastFlaggedTextRef = useRef<string | null>(null);
@@ -232,10 +235,40 @@ export function MessagesPanel({
     setDocuments(documentsToPickerItems(rows));
   }, [householdId, supabase]);
 
+  const refreshSuggestions = useCallback(async () => {
+    try {
+      const res = await fetch("/api/calendar/suggestions");
+      if (!res.ok) {
+        setSuggestions([]);
+        return;
+      }
+      const json = (await res.json()) as {
+        suggestions?: CalendarSuggestion[];
+      };
+      setSuggestions(json.suggestions ?? []);
+    } catch {
+      setSuggestions([]);
+    }
+  }, []);
+
+  const scanThread = useCallback(async (threadId: string) => {
+    try {
+      await fetch("/api/calendar/suggestions/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ threadId }),
+      });
+      await refreshSuggestions();
+    } catch {
+      // non-fatal
+    }
+  }, [refreshSuggestions]);
+
   useEffect(() => {
     void refreshCalendar();
     void refreshDocuments();
-  }, [refreshCalendar, refreshDocuments]);
+    void refreshSuggestions();
+  }, [refreshCalendar, refreshDocuments, refreshSuggestions]);
 
   const escalated = flagCount >= ESCALATE_AFTER_FLAGS;
   const bodyHostile = looksHostileClient(body);
@@ -289,8 +322,10 @@ export function MessagesPanel({
       const t = window.setTimeout(() => setMessages([]), 0);
       return () => window.clearTimeout(t);
     }
-    void loadMessages(selectedId);
-  }, [selectedId, loadMessages]);
+    void loadMessages(selectedId).then(() => {
+      void scanThread(selectedId);
+    });
+  }, [selectedId, loadMessages, scanThread]);
 
   useEffect(() => {
     if (needsMigration) return;
@@ -497,6 +532,7 @@ export function MessagesPanel({
       setSending(false);
       await refreshThreadList();
       setSelectedId(threadId);
+      void scanThread(threadId);
       return;
     }
 
@@ -523,6 +559,7 @@ export function MessagesPanel({
     setSending(false);
     await loadMessages(selectedId);
     await refreshThreadList();
+    void scanThread(selectedId);
   }
 
   function useToneSuggestion() {
@@ -791,6 +828,18 @@ export function MessagesPanel({
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto bg-background px-4 py-4 sm:px-5">
+          {selectedId && selectedId !== "new" && suggestions.length > 0 ? (
+            <SuggestionBanner
+              suggestions={suggestions.filter((s) => {
+                if (s.source_type !== "message") return true;
+                if (messages.length === 0) return true;
+                const ids = new Set(messages.map((m) => m.id));
+                return s.source_ids.some((id) => ids.has(id));
+              })}
+              onChanged={refreshSuggestions}
+              title="Add to calendar?"
+            />
+          ) : null}
           {selectedId === "new" ? (
             <div className="rounded-2xl border border-dashed border-border bg-card px-5 py-8 text-center shadow-[var(--shadow-sm)]">
               <p className="text-base font-semibold text-foreground">

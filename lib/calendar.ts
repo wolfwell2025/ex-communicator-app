@@ -322,7 +322,7 @@ export async function listPersonalCalendarConnections(
   const { data, error } = await supabase
     .from("personal_calendar_connections")
     .select(
-      "id, user_id, provider, status, label, sync_enabled, external_account_email, external_calendar_id, last_synced_at, created_at, updated_at"
+      "id, user_id, provider, status, label, sync_enabled, export_enabled, scopes, external_account_email, external_calendar_id, last_synced_at, created_at, updated_at"
     )
     .eq("user_id", userId)
     .order("created_at", { ascending: true });
@@ -333,12 +333,16 @@ export async function listPersonalCalendarConnections(
   const connections = (data ?? []).map((row) => {
     const r = row as PersonalCalendarConnection & {
       sync_enabled?: boolean | null;
+      export_enabled?: boolean | null;
+      scopes?: string | null;
       label?: string | null;
     };
     return {
       ...r,
       label: r.label ?? null,
       sync_enabled: r.sync_enabled !== false,
+      export_enabled: Boolean(r.export_enabled),
+      scopes: r.scopes ?? null,
     } as PersonalCalendarConnection;
   });
   return { connections, error: null };

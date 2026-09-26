@@ -24,7 +24,8 @@ are always **private**. Sharing is only via in-app **Propose → Accept**.
 6. OAuth consent screen:
    - User type: External (or Internal if Workspace-only)
    - App name: Ex Communicator
-   - Scopes: `calendar.readonly`, `userinfo.email` (openid/email profile as offered)
+   - Scopes: `calendar` (read/write), `userinfo.email` (openid/email profile as offered)
+   - Existing users with readonly-only tokens should use **Reconnect Google for two-way sync** in Connected calendars
    - Add your Google account as a test user while the app is in Testing
 
 ## 3. Maps / Places browser key
@@ -76,9 +77,13 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 Paste and run in Supabase SQL Editor:
 
 - `supabase/migrations/004_calendar_oauth_tokens.sql`
+- `supabase/migrations/007_calendar_suggestions_and_export.sql` (suggestions table + `export_enabled`)
 
-This adds multi-calendar columns (`label`, `sync_enabled`, encrypted tokens) and a
+Migration 004 adds multi-calendar columns (`label`, `sync_enabled`, encrypted tokens) and a
 trigger so **imported** events always **insert as private**.
+
+Migration 007 adds `calendar_suggestions` (message/doc date prompts) and
+`export_enabled` on connections (default off).
 
 ## 6. How to test
 
@@ -98,3 +103,15 @@ trigger so **imported** events always **insert as private**.
 - Co-parent never sees Google imports until explicit propose + accept.
 - Re-sync updates title/time/location only; it does **not** reset visibility if
   you already proposed or shared an event.
+
+## 7. Two-way sync (export)
+
+1. OAuth now requests full `calendar` scope (not `calendar.readonly`).
+2. On **Connected calendars**, turn **Export** on for a calendar (opt-in).
+3. Events **you create** in Ex Communicator (private, pending, or shared) are
+   pushed to that Google calendar. Imported Google events stay `source=google`
+   and are never re-pushed.
+4. If Export is disabled in the UI, click **Reconnect Google for two-way sync**
+   and approve write access.
+5. Import still always lands as **private**. Co-parent never sees imports until
+   propose → accept.

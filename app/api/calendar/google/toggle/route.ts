@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+  setConnectionExportEnabled,
   setConnectionSyncEnabled,
   updateConnectionLabel,
 } from "@/lib/google-calendar";
@@ -17,6 +18,7 @@ export async function POST(request: Request) {
   let body: {
     connectionId?: string;
     syncEnabled?: boolean;
+    exportEnabled?: boolean;
     label?: string;
   };
   try {
@@ -38,6 +40,16 @@ export async function POST(request: Request) {
       userId: user.id,
       connectionId: body.connectionId,
       syncEnabled: body.syncEnabled,
+    });
+    if (error) return NextResponse.json({ error }, { status: 400 });
+  }
+
+  if (typeof body.exportEnabled === "boolean") {
+    const { error } = await setConnectionExportEnabled({
+      supabase,
+      userId: user.id,
+      connectionId: body.connectionId,
+      exportEnabled: body.exportEnabled,
     });
     if (error) return NextResponse.json({ error }, { status: 400 });
   }

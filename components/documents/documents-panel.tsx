@@ -21,9 +21,12 @@ import {
   uploadDocument,
 } from "@/lib/documents";
 import type {
+  CalendarSuggestion,
   DocumentCategory,
   HouseholdDocument,
 } from "@/lib/types";
+import { SuggestionBanner } from "@/components/calendar/suggestion-banner";
+import { extractDateTimes } from "@/lib/date-extract";
 
 type Props = {
   householdId: string;
@@ -125,6 +128,9 @@ export function DocumentsPanel({
   const [loading, setLoading] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [form, setForm] = useState<UploadForm>(emptyUploadForm);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [docSuggestions, setDocSuggestions] = useState<CalendarSuggestion[]>([]);
+  const [docSuggestLoading, setDocSuggestLoading] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -140,6 +146,37 @@ export function DocumentsPanel({
     setDocuments(rows);
     setError(null);
   }, [householdId, supabase]);
+
+  const loadDocSuggestions = useCallback(async (documentId: string) => {
+    setDocSuggestLoading(true);
+    try {
+      const res = await fetch("/api/calendar/suggestions/document", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentId }),
+      });
+      const json = (await res.json()) as {
+        suggestions?: CalendarSuggestion[];
+      };
+      setDocSuggestions(json.suggestions ?? []);
+    } catch {
+      setDocSuggestions([]);
+    }
+    setDocSuggestLoading(false);
+  }, []);
+
+  function openDocDetail(doc: HouseholdDocument) {
+    const next = expandedId === doc.id ? null : doc.id;
+    setExpandedId(next);
+    if (next) {
+      const blob = `${doc.title}\n${doc.description ?? ""}`;
+      const hasDates = extractDateTimes(blob).length > 0;
+      if (hasDates) void loadDocSuggestions(doc.id);
+      else setDocSuggestions([]);
+    } else {
+      setDocSuggestions([]);
+    }
+  }
 
   useEffect(() => {
     const channel = supabase
@@ -432,9 +469,13 @@ export function DocumentsPanel({
                     </div>
                     <div className="min-w-0 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate text-base font-semibold text-foreground">
+                        <button
+                          type="button"
+                          className="truncate text-left text-base font-semibold text-foreground hover:underline"
+                          onClick={() => openDocDetail(doc)}
+                        >
                           {doc.title}
-                        </p>
+                        </button>
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${badge.className}`}
                         >
@@ -455,6 +496,34 @@ export function DocumentsPanel({
                         <p className="text-sm leading-6 text-muted line-clamp-2">
                           {doc.description}
                         </p>
+                      ) : null}
+                      {expandedId === doc.id ? (
+                        <div className="pt-2">
+                          {docSuggestLoading ? (
+                            <p className="text-xs text-muted">Looking for dates…</p>
+                          ) : docSuggestions.length > 0 ? (
+                            <SuggestionBanner
+                              compact
+                              title="Dates found in this document"
+                              suggestions={docSuggestions}
+                              onChanged={() => loadDocSuggestions(doc.id)}
+                            />
+                          ) : (
+                            <p className="text-xs text-muted">
+                              No clear upcoming dates in the title or description.
+                            </p>
+                          )}
+                        </div>
+                      ) : extractDateTimes(
+                          `${doc.title}\n${doc.description ?? ""}`
+                        ).length > 0 ? (
+                        <button
+                          type="button"
+                          className="text-xs font-semibold text-accent hover:underline"
+                          onClick={() => openDocDetail(doc)}
+                        >
+                          Dates found: review for calendar
+                        </button>
                       ) : null}
                     </div>
                   </div>

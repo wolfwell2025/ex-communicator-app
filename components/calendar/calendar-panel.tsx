@@ -424,19 +424,34 @@ export function CalendarPanel({
         setBusy(false);
         return;
       }
-    } else {
-      const { error: createErr } = await createCalendarEvent(supabase, {
-        householdId,
-        userId,
-        input: {
-          ...input,
-          visibility: form.proposeOnCreate ? "pending" : "private",
-        },
+      void fetch("/api/calendar/google/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: editingId, action: "upsert" }),
       });
+    } else {
+      const { event: created, error: createErr } = await createCalendarEvent(
+        supabase,
+        {
+          householdId,
+          userId,
+          input: {
+            ...input,
+            visibility: form.proposeOnCreate ? "pending" : "private",
+          },
+        }
+      );
       if (createErr) {
         setError(createErr);
         setBusy(false);
         return;
+      }
+      if (created?.id) {
+        void fetch("/api/calendar/google/export", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ eventId: created.id, action: "upsert" }),
+        });
       }
     }
 
@@ -451,6 +466,15 @@ export function CalendarPanel({
     if (!window.confirm("Delete this event? This cannot be undone.")) return;
     setBusy(true);
     setError(null);
+    try {
+      await fetch("/api/calendar/google/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId, action: "delete" }),
+      });
+    } catch {
+      // best-effort Google delete
+    }
     const { error: delErr } = await deleteCalendarEvent(supabase, eventId);
     if (delErr) setError(delErr);
     setBusy(false);

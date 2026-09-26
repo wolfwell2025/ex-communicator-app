@@ -16,7 +16,7 @@ Next.js App Router starter (TypeScript + Tailwind + ESLint) with Supabase Auth w
 | `/auth/confirm` | Email OTP / magic-link confirmation |
 | `/app` | Authenticated shell (requires session) |
 | `/app/messages` | Threaded messaging (subject, To, search) + transcript export |
-| `/app/calendar` | Shared custody calendar (private / propose / accept) |
+| `/app/calendar` | Shared custody calendar (private / propose / accept) + Google import/export |
 | `/app/documents` | Household document vault (upload / share / reference) |
 | `/app/expenses` | Expenses stub |
 | `/app/invite/[token]` | Accept co-parent household invite |
@@ -89,6 +89,7 @@ Open Supabase Dashboard → **SQL Editor** for project `pryvielnxaxylcxihgpk`. I
 4. [`supabase/migrations/004_calendar_oauth_tokens.sql`](supabase/migrations/004_calendar_oauth_tokens.sql) — multi-calendar OAuth columns + imported-events-must-insert-private trigger.
 5. [`supabase/migrations/005_documents.sql`](supabase/migrations/005_documents.sql) — `documents` table + private Storage bucket `documents` with RLS.
 6. [`supabase/migrations/006_message_threads.sql`](supabase/migrations/006_message_threads.sql) — message threads (subjects, recipients, search). Migrates existing flat messages into a legacy "Household messages" thread.
+7. [`supabase/migrations/007_calendar_suggestions_and_export.sql`](supabase/migrations/007_calendar_suggestions_and_export.sql) — `calendar_suggestions` (message/doc date prompts) + `export_enabled` on Google connections. After OAuth scope upgrade, use **Reconnect Google for two-way sync** if Export stays disabled.
 
 Confirm tables exist, then sign in and open `/app`, `/app/calendar`, `/app/messages`, and `/app/documents`.
 
@@ -97,7 +98,7 @@ Confirm tables exist, then sign in and open `/app`, `/app/calendar`, `/app/messa
 - **private** — only the creator can see the event (co-parent sees nothing).
 - **pending** — proposed to household; appears in Share requests for the co-parent, not on the shared month grid until accepted.
 - **shared** — visible to all household members; Reference calendar chip uses shared events only.
-- **Google sync** — connect multiple calendars (personal / work / family). Imports are **always private**. Connecting never auto-shares. Share only via Propose → Accept. See `GOOGLE-SETUP.md`.
+- **Google sync** — connect multiple calendars (personal / work / family). Imports are **always private**. Export is opt-in per calendar (`export_enabled`). Connecting never auto-shares. Share only via Propose → Accept. See `GOOGLE-SETUP.md`.
 
 ### Documents privacy
 

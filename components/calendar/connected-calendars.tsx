@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { connectionHasWriteScope } from "@/lib/google-calendar-scopes";
 import type { PersonalCalendarConnection } from "@/lib/types";
 
 const secondaryBtn =
@@ -87,6 +88,10 @@ export function ConnectedCalendars({
 
   const googleConnections = connections.filter(
     (c) => c.provider === "google" && c.status === "connected"
+  );
+
+  const needsWriteReconnect = googleConnections.some(
+    (c) => !connectionHasWriteScope(c.scopes)
   );
 
   const loadPicker = useCallback(async (reuseConnectionId?: string) => {
@@ -195,6 +200,25 @@ export function ConnectedCalendars({
     await onChanged();
   }
 
+  async function toggleExport(connectionId: string, exportEnabled: boolean) {
+    setBusy(true);
+    setError(null);
+    const res = await fetch("/api/calendar/google/toggle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ connectionId, exportEnabled }),
+    });
+    const json = (await res.json()) as { error?: string };
+    if (!res.ok) setError(json.error || "Could not update export.");
+    else if (exportEnabled) {
+      setNote(
+        "Export on. New events you create in Ex Communicator will be pushed to this Google calendar. Co-parent private events are never exported."
+      );
+    }
+    setBusy(false);
+    await onChanged();
+  }
+
   async function syncOne(connectionId: string) {
     setBusy(true);
     setError(null);
@@ -272,9 +296,10 @@ export function ConnectedCalendars({
           <p className="mt-1 max-w-xl text-xs leading-5 text-muted">
             Personal, work, or family Google calendars.{" "}
             <span className="font-semibold text-foreground">
-              Sync never shares with your co-parent.
+              Import never shares with your co-parent.
             </span>{" "}
-            Imports stay private until you propose and they accept.
+            Imports stay private until you propose and they accept. Export to
+            Google is opt-in per calendar.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -333,6 +358,20 @@ export function ConnectedCalendars({
         </p>
       ) : null}
 
+      {needsWriteReconnect ? (
+        <div className="mt-3 rounded-xl border border-amber-200 bg-warning-soft/70 px-3.5 py-3 text-sm text-foreground">
+          <p className="font-semibold">Reconnect Google for two-way sync</p>
+          <p className="mt-1 text-xs leading-5 text-muted">
+            Your connection only has read access. Disconnect is not required:
+            use Connect Google again (or Connect Google again below) and approve
+            calendar write access so Export can push events you create.
+          </p>
+          <a href="/api/calendar/google/connect" className={`${primaryBtn} mt-2`}>
+            Reconnect Google for two-way sync
+          </a>
+        </div>
+      ) : null}
+
       {googleConnections.length === 0 ? (
         <div className="mt-4 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-surface/60 px-4 py-6 text-center">
           <div
@@ -382,7 +421,12 @@ export function ConnectedCalendars({
                       </span>
                       {!c.sync_enabled ? (
                         <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[10px] font-semibold text-warning">
-                          Paused
+                          Import paused
+                        </span>
+                      ) : null}
+                      {c.export_enabled ? (
+                        <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold text-accent">
+                          Export on
                         </span>
                       ) : null}
                     </div>
@@ -400,7 +444,7 @@ export function ConnectedCalendars({
                 <div className="flex flex-wrap items-center gap-1.5">
                   <label
                     className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground"
-                    title={c.sync_enabled ? "Sync enabled" : "Sync paused"}
+                    title={c.sync_enabled ? "Import enabled" : "Import paused"}
                   >
                     <span
                       className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
@@ -420,8 +464,46 @@ export function ConnectedCalendars({
                         onChange={(e) => void toggleSync(c.id, e.target.checked)}
                       />
                     </span>
-                    Sync
+                    Import
                   </label>
+                  <label
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground"
+                    title={
+                      !connectionHasWriteScope(c.scopes)
+                        ? "Reconnect Google for two-way sync"
+                        : c.export_enabled
+                          ? "Export enabled"
+                          : "Export off (opt-in)"
+                    }
+                  >
+                    <span
+                      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                        c.export_enabled ? "bg-accent" : "bg-slate-300"
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                          c.export_enabled ? "translate-x-4" : "translate-x-0.5"
+                        }`}
+                      />
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={Boolean(c.export_enabled)}
+                        disabled={busy || !connectionHasWriteScope(c.scopes)}
+                        onChange={(e) => void toggleExport(c.id, e.target.checked)}
+                      />
+                    </span>
+                    Export
+                  </label>
+                  {!connectionHasWriteScope(c.scopes) ? (
+                    <a
+                      href="/api/calendar/google/connect"
+                      className="text-[11px] font-semibold text-warning hover:underline"
+                    >
+                      Reconnect for export
+                    </a>
+                  ) : null}
                   <button
                     type="button"
                     className={secondaryBtn}

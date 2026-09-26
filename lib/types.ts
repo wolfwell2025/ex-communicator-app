@@ -123,10 +123,38 @@ export type PersonalCalendarConnection = {
   provider: PersonalCalendarProvider;
   status: PersonalCalendarConnectionStatus;
   label: string | null;
+  /** Inbound import from Google (default on). */
   sync_enabled: boolean;
+  /** Outbound push of app-owned events (default off, opt-in). */
+  export_enabled: boolean;
+  /** Granted OAuth scopes string; used to detect missing write access. */
+  scopes: string | null;
   external_account_email: string | null;
   external_calendar_id: string | null;
   last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CalendarSuggestionStatus = "pending" | "accepted" | "dismissed";
+
+export type CalendarSuggestionSourceType = "message" | "document";
+
+export type CalendarSuggestion = {
+  id: string;
+  household_id: string;
+  source_type: CalendarSuggestionSourceType;
+  source_key: string;
+  source_ids: string[];
+  title: string;
+  starts_at: string;
+  ends_at: string;
+  all_day: boolean;
+  status: CalendarSuggestionStatus;
+  suggested_visibility: "private" | "pending";
+  created_for: string;
+  proposer_id: string | null;
+  event_id: string | null;
   created_at: string;
   updated_at: string;
 };
