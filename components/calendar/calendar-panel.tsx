@@ -24,6 +24,16 @@ import type {
   CalendarEventType,
   PersonalCalendarConnection,
 } from "@/lib/types";
+import { ConnectedCalendars } from "@/components/calendar/connected-calendars";
+import {
+  EventDateTimeFields,
+  defaultPartsForDay,
+  partsFromEvent,
+  partsToIso,
+  validateParts,
+  type DateTimeParts,
+} from "@/components/calendar/event-datetime-fields";
+import { LocationInput } from "@/components/calendar/location-input";
 
 type Props = {
   householdId: string;
@@ -31,6 +41,8 @@ type Props = {
   userId: string;
   initialEvents: CalendarEvent[];
   initialConnections: PersonalCalendarConnection[];
+  googlePick?: boolean;
+  googleError?: string | null;
 };
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -95,32 +107,10 @@ function formatEventWhen(event: CalendarEvent): string {
   }
 }
 
-function toLocalInputValue(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function localInputToIso(value: string): string {
-  const d = new Date(value);
-  return d.toISOString();
-}
-
-function defaultRangeForDay(day: Date): { starts: string; ends: string } {
-  const start = new Date(day);
-  start.setHours(9, 0, 0, 0);
-  const end = new Date(day);
-  end.setHours(10, 0, 0, 0);
-  return { starts: toLocalInputValue(start.toISOString()), ends: toLocalInputValue(end.toISOString()) };
-}
-
 type FormState = {
   title: string;
   description: string;
-  startsLocal: string;
-  endsLocal: string;
-  allDay: boolean;
+  when: DateTimeParts;
   location: string;
   eventType: CalendarEventType;
   proposeOnCreate: boolean;
@@ -128,13 +118,10 @@ type FormState = {
 
 function emptyForm(day?: Date): FormState {
   const base = day ?? new Date();
-  const range = defaultRangeForDay(base);
   return {
     title: "",
     description: "",
-    startsLocal: range.starts,
-    endsLocal: range.ends,
-    allDay: false,
+    when: defaultPartsForDay(base),
     location: "",
     eventType: "parenting_time",
     proposeOnCreate: false,
@@ -145,9 +132,7 @@ function formFromEvent(event: CalendarEvent): FormState {
   return {
     title: event.title,
     description: event.description ?? "",
-    startsLocal: toLocalInputValue(event.starts_at),
-    endsLocal: toLocalInputValue(event.ends_at),
-    allDay: event.all_day,
+    when: partsFromEvent(event.starts_at, event.ends_at, event.all_day),
     location: event.location ?? "",
     eventType: event.event_type,
     proposeOnCreate: false,
@@ -199,6 +184,8 @@ export function CalendarPanel({
   userId,
   initialEvents,
   initialConnections,
+  googlePick = false,
+  googleError = null,
 }: Props) {
   const supabase = useMemo(() => createClient(), []);
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
@@ -211,7 +198,6 @@ export function CalendarPanel({
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(() => emptyForm());
-  const [connectNote, setConnectNote] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const [{ events: next, error: evErr }, { connections: conns }] =
@@ -328,12 +314,19 @@ export function CalendarPanel({
     setBusy(true);
     setError(null);
 
+    const whenErr = validateParts(form.when);
+    if (whenErr) {
+      setError(whenErr);
+      setBusy(false);
+      return;
+    }
+    const { starts_at, ends_at } = partsToIso(form.when);
     const input = {
       title: form.title,
       description: form.description || null,
-      starts_at: localInputToIso(form.startsLocal),
-      ends_at: localInputToIso(form.endsLocal),
-      all_day: form.allDay,
+      starts_at,
+      ends_at,
+      all_day: form.when.allDay,
       location: form.location || null,
       event_type: form.eventType,
     };
@@ -429,14 +422,6 @@ export function CalendarPanel({
     await refresh();
   }
 
-  function onConnectStub(provider: "google" | "apple" | "outlook") {
-    setConnectNote(
-      `${provider === "google" ? "Google" : provider === "apple" ? "Apple" : "Outlook"} Calendar sync is not wired yet. Schema is ready (personal_calendar_connections); OAuth will land in a later slice. Private events you add here stay private until you propose and the co-parent accepts.`
-    );
-  }
-
-  const googleConn = connections.find((c) => c.provider === "google");
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -457,34 +442,30 @@ export function CalendarPanel({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
+          <a
+            href={
+              connections.some((c) => c.provider === "google" && c.status === "connected")
+                ? "#connected-calendars"
+                : "/api/calendar/google/connect"
+            }
             className={secondaryBtn}
-            onClick={() => onConnectStub("google")}
-            title="OAuth sync coming later"
           >
-            {googleConn?.status === "connected"
-              ? "Google Calendar connected"
-              : "Connect personal calendar"}
-          </button>
+            {connections.some((c) => c.provider === "google" && c.status === "connected")
+              ? "Manage Google calendars"
+              : "Connect Google Calendar"}
+          </a>
           <button type="button" className={primaryBtn} onClick={() => openCreate()}>
             New event
           </button>
         </div>
       </div>
 
-      {connectNote ? (
-        <div className="rounded-2xl border border-border bg-surface px-4 py-3 text-sm leading-6 text-muted">
-          {connectNote}
-          <button
-            type="button"
-            className="ml-2 font-semibold text-accent hover:underline"
-            onClick={() => setConnectNote(null)}
-          >
-            Dismiss
-          </button>
-        </div>
-      ) : null}
+      <ConnectedCalendars
+        connections={connections}
+        onChanged={refresh}
+        autoOpenPicker={googlePick}
+        flashError={googleError}
+      />
 
       {error ? (
         <p
@@ -672,6 +653,11 @@ export function CalendarPanel({
                         <div className="min-w-0">
                           <p className="font-semibold text-foreground">
                             {event.title}
+                            {event.source === "google" ? (
+                              <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-muted">
+                                Google · private until proposed
+                              </span>
+                            ) : null}
                           </p>
                           <p className="mt-0.5 text-xs text-muted">
                             {formatEventWhen(event)}
@@ -850,8 +836,9 @@ export function CalendarPanel({
                   {editingId ? "Edit event" : "New event"}
                 </h2>
                 <p className="mt-1 text-xs leading-5 text-muted">
-                  New events start private. Propose to household when you want
-                  the co-parent to review and accept.
+                  New events start private (including Google imports). Propose
+                  to household only when you want the co-parent to review and
+                  accept. Nothing syncs as shared automatically.
                 </p>
               </div>
               <button
@@ -903,61 +890,23 @@ export function CalendarPanel({
                 </select>
               </label>
 
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <input
-                  type="checkbox"
-                  checked={form.allDay}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, allDay: e.target.checked }))
-                  }
-                  className="h-4 w-4 rounded border-border"
+              <div className="rounded-2xl border border-border bg-surface/60 p-3.5">
+                <EventDateTimeFields
+                  value={form.when}
+                  disabled={busy}
+                  onChange={(when) => setForm((f) => ({ ...f, when }))}
                 />
-                All-day event
-              </label>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="block space-y-1.5">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-muted">
-                    Starts
-                  </span>
-                  <input
-                    required
-                    type="datetime-local"
-                    value={form.startsLocal}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, startsLocal: e.target.value }))
-                    }
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground shadow-[var(--shadow-sm)] focus:border-accent focus:outline-none focus:ring-2 focus:ring-[var(--accent-ring)]"
-                  />
-                </label>
-                <label className="block space-y-1.5">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-muted">
-                    Ends
-                  </span>
-                  <input
-                    required
-                    type="datetime-local"
-                    value={form.endsLocal}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, endsLocal: e.target.value }))
-                    }
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground shadow-[var(--shadow-sm)] focus:border-accent focus:outline-none focus:ring-2 focus:ring-[var(--accent-ring)]"
-                  />
-                </label>
               </div>
 
               <label className="block space-y-1.5">
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted">
                   Location
                 </span>
-                <input
-                  maxLength={300}
+                <LocationInput
                   value={form.location}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, location: e.target.value }))
-                  }
+                  disabled={busy}
+                  onChange={(location) => setForm((f) => ({ ...f, location }))}
                   className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground shadow-[var(--shadow-sm)] focus:border-accent focus:outline-none focus:ring-2 focus:ring-[var(--accent-ring)]"
-                  placeholder="Optional"
                 />
               </label>
 

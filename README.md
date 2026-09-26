@@ -86,6 +86,7 @@ Open Supabase Dashboard → **SQL Editor** for project `pryvielnxaxylcxihgpk`. I
 1. [`supabase/migrations/001_households_messages.sql`](supabase/migrations/001_households_messages.sql) — profiles, households, messages, RLS helpers.
 2. [`supabase/migrations/002_calendar_events.sql`](supabase/migrations/002_calendar_events.sql) — `calendar_events` + `personal_calendar_connections`, privacy RLS (`private` / `pending` / `shared`).
 3. [`supabase/migrations/003_household_invites.sql`](supabase/migrations/003_household_invites.sql) — co-parent email invites (`create_household_invite` / `accept_household_invite`).
+4. [`supabase/migrations/004_calendar_oauth_tokens.sql`](supabase/migrations/004_calendar_oauth_tokens.sql) — multi-calendar OAuth columns + imported-events-must-insert-private trigger.
 
 Confirm tables exist, then sign in and open `/app`, `/app/calendar`, and `/app/messages`.
 
@@ -94,16 +95,20 @@ Confirm tables exist, then sign in and open `/app`, `/app/calendar`, and `/app/m
 - **private** — only the creator can see the event (co-parent sees nothing).
 - **pending** — proposed to household; appears in Share requests for the co-parent, not on the shared month grid until accepted.
 - **shared** — visible to all household members; Reference calendar chip uses shared events only.
-- Google Calendar OAuth is stubbed (`personal_calendar_connections` + Connect button).
+- **Google sync** — connect multiple calendars (personal / work / family). Imports are **always private**. Connecting never auto-shares. Share only via Propose → Accept. See `GOOGLE-SETUP.md`.
 
 ### Invite co-parent
 
 On Dashboard or Calendar, use **Invite co-parent**: enter their email → Copy link → they sign up/log in with that **same email** → open `/app/invite/[token]` → Accept. They join your household.
 
+## Google Calendar + Places
+
+Follow [`GOOGLE-SETUP.md`](GOOGLE-SETUP.md) for OAuth credentials, Maps key, env vars, and redirect URIs.
+
 ## Next steps
 
-1. Two-account propose/accept calendar test (see ship notes).
-2. Documents and expenses modules; Google Calendar OAuth sync.
+1. Finish Google Cloud OAuth + Places keys; run migration 004; connect multiple calendars.
+2. Documents and expenses modules.
 
 ## Notes
 

@@ -8,7 +8,17 @@ import {
 import { ensureHousehold } from "@/lib/households";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function CalendarPage() {
+type PageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function CalendarPage({ searchParams }: PageProps) {
+  const params = (await searchParams) ?? {};
+  const googlePick = params.google_pick === "1" || params.google_pick === "true";
+  const googleErrorRaw = params.google_error;
+  const googleError = Array.isArray(googleErrorRaw)
+    ? googleErrorRaw[0]
+    : googleErrorRaw;
   const supabase = await createClient();
   const {
     data: { user },
@@ -39,7 +49,7 @@ export default async function CalendarPage() {
     );
   }
 
-  const [{ events, error: eventsError }, { connections }] = await Promise.all([
+  const [{ events, error: eventsError }, { connections, error: connectionsError }] = await Promise.all([
     listCalendarEvents(supabase, household.id),
     listPersonalCalendarConnections(supabase, user.id),
   ]);
@@ -48,6 +58,11 @@ export default async function CalendarPage() {
     eventsError &&
     /calendar_events|does not exist|schema cache|Could not find/i.test(
       eventsError
+    );
+  const oauthMigrationHint =
+    connectionsError &&
+    /label|sync_enabled|access_token|does not exist|schema cache|Could not find/i.test(
+      connectionsError
     );
 
   return (
@@ -67,6 +82,21 @@ export default async function CalendarPage() {
           ) : null}
         </p>
       ) : null}
+      {connectionsError ? (
+        <p className="rounded-2xl border border-amber-200 bg-warning-soft p-4 text-sm text-warning">
+          Could not load calendar connections: {connectionsError}
+          {oauthMigrationHint ? (
+            <>
+              {" "}
+              Paste{" "}
+              <code className="rounded-md border border-amber-200 bg-white px-1.5 py-0.5 text-xs text-foreground">
+                supabase/migrations/004_calendar_oauth_tokens.sql
+              </code>{" "}
+              into the Supabase SQL Editor, then refresh.
+            </>
+          ) : null}
+        </p>
+      ) : null}
       <InviteCoParent
         householdId={household.id}
         householdName={household.name}
@@ -77,6 +107,8 @@ export default async function CalendarPage() {
         userId={user.id}
         initialEvents={events}
         initialConnections={connections}
+        googlePick={googlePick}
+        googleError={googleError ?? null}
       />
     </div>
   );

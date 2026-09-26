@@ -82,11 +82,17 @@ export type PersonalCalendarConnectionStatus =
   | "connected"
   | "error";
 
+/**
+ * One row per selected calendar (personal / work / family shared, etc.).
+ * Imported events are always private until explicitly proposed in-app.
+ */
 export type PersonalCalendarConnection = {
   id: string;
   user_id: string;
   provider: PersonalCalendarProvider;
   status: PersonalCalendarConnectionStatus;
+  label: string | null;
+  sync_enabled: boolean;
   external_account_email: string | null;
   external_calendar_id: string | null;
   last_synced_at: string | null;

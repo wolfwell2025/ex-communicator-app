@@ -322,18 +322,26 @@ export async function listPersonalCalendarConnections(
   const { data, error } = await supabase
     .from("personal_calendar_connections")
     .select(
-      "id, user_id, provider, status, external_account_email, external_calendar_id, last_synced_at, created_at, updated_at"
+      "id, user_id, provider, status, label, sync_enabled, external_account_email, external_calendar_id, last_synced_at, created_at, updated_at"
     )
     .eq("user_id", userId)
-    .order("provider");
+    .order("created_at", { ascending: true });
 
   if (error) {
     return { connections: [], error: error.message };
   }
-  return {
-    connections: (data ?? []) as PersonalCalendarConnection[],
-    error: null,
-  };
+  const connections = (data ?? []).map((row) => {
+    const r = row as PersonalCalendarConnection & {
+      sync_enabled?: boolean | null;
+      label?: string | null;
+    };
+    return {
+      ...r,
+      label: r.label ?? null,
+      sync_enabled: r.sync_enabled !== false,
+    } as PersonalCalendarConnection;
+  });
+  return { connections, error: null };
 }
 
 /** Events visible on the user's month grid: own private/pending + all shared. */

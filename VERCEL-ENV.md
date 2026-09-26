@@ -44,3 +44,28 @@ Vercel (Production):
 
 Never expose these as `NEXT_PUBLIC_*`. If neither key is set, `/api/tone-check`
 still returns a solid template rewrite.
+
+
+## Google Calendar + Places
+
+See **GOOGLE-SETUP.md** for Cloud Console steps. Add these for Production
+(and Preview if needed), then redeploy:
+
+| Name | Value |
+| --- | --- |
+| `GOOGLE_CLIENT_ID` | OAuth Web client ID |
+| `GOOGLE_CLIENT_SECRET` | OAuth Web client secret |
+| `CALENDAR_TOKEN_SECRET` | Long random secret for encrypting refresh/access tokens at rest |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Browser Maps/Places key (HTTP referrer restricted) |
+| `GOOGLE_REDIRECT_URI` | Optional; default `https://ex-communicator-app.vercel.app/api/calendar/google/callback` |
+
+**Redirect URI to allow in Google Cloud Console:**
+
+- `https://ex-communicator-app.vercel.app/api/calendar/google/callback`
+- `http://localhost:3000/api/calendar/google/callback` (local)
+
+**Privacy:** Google sync imports events as **private** only. Co-parent never sees
+them until propose + accept in-app.
+
+Also run migration `004_calendar_oauth_tokens.sql` in Supabase SQL Editor
+(multi-calendar columns + private-import trigger).
