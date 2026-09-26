@@ -7,6 +7,9 @@ import { getSiteUrl } from "@/lib/supabase/env";
 
 type Mode = "password" | "magic";
 
+const fieldClass =
+  "w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-foreground shadow-[var(--shadow-sm)] placeholder:text-muted-foreground transition-colors hover:border-border-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-[var(--accent-ring)]";
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -17,7 +20,9 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(
-    authError === "auth" ? "Sign-in link was invalid or expired. Try again." : null
+    authError === "auth"
+      ? "Sign-in link was invalid or expired. Try again."
+      : null
   );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -76,13 +81,13 @@ export function LoginForm() {
 
   return (
     <form className="mt-6 space-y-4" onSubmit={onSubmit}>
-      <div className="flex rounded-lg border border-border p-1 text-sm">
+      <div className="flex rounded-lg border border-border bg-surface p-1 text-sm">
         <button
           type="button"
           onClick={() => setMode("password")}
-          className={`flex-1 rounded-md px-3 py-1.5 font-medium ${
+          className={`flex-1 rounded-md px-3 py-1.5 font-medium transition-colors ${
             mode === "password"
-              ? "bg-accent text-white"
+              ? "bg-card text-foreground shadow-sm ring-1 ring-border"
               : "text-muted hover:text-foreground"
           }`}
         >
@@ -91,9 +96,9 @@ export function LoginForm() {
         <button
           type="button"
           onClick={() => setMode("magic")}
-          className={`flex-1 rounded-md px-3 py-1.5 font-medium ${
+          className={`flex-1 rounded-md px-3 py-1.5 font-medium transition-colors ${
             mode === "magic"
-              ? "bg-accent text-white"
+              ? "bg-card text-foreground shadow-sm ring-1 ring-border"
               : "text-muted hover:text-foreground"
           }`}
         >
@@ -102,7 +107,7 @@ export function LoginForm() {
       </div>
 
       <label className="block space-y-1.5">
-        <span className="text-sm font-medium">Email</span>
+        <span className="text-sm font-medium text-foreground">Email</span>
         <input
           type="email"
           required
@@ -110,13 +115,13 @@ export function LoginForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+          className={fieldClass}
         />
       </label>
 
       {mode === "password" ? (
         <label className="block space-y-1.5">
-          <span className="text-sm font-medium">Password</span>
+          <span className="text-sm font-medium text-foreground">Password</span>
           <input
             type="password"
             required
@@ -125,18 +130,24 @@ export function LoginForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+            className={fieldClass}
           />
         </label>
       ) : null}
 
       {error ? (
-        <p className="text-sm text-red-600" role="alert">
+        <p
+          className="rounded-lg border border-red-200 bg-danger-soft px-3 py-2 text-sm text-danger"
+          role="alert"
+        >
           {error}
         </p>
       ) : null}
       {message ? (
-        <p className="text-sm text-accent" role="status">
+        <p
+          className="rounded-lg border border-border bg-accent-soft px-3 py-2 text-sm text-accent"
+          role="status"
+        >
           {message}
         </p>
       ) : null}
@@ -144,7 +155,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60"
+        className="w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition-colors hover:bg-accent-hover disabled:opacity-60"
       >
         {loading
           ? "Working..."

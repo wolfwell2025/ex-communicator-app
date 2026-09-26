@@ -19,27 +19,35 @@ export default async function AppShellLayout({
   }
 
   return (
-    <div className="flex min-h-full flex-1 flex-col">
-      <header className="border-b border-border bg-card">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-4">
-            <Link href="/" className="text-lg font-semibold tracking-tight">
+    <div className="flex min-h-full flex-1 flex-col bg-surface">
+      <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-3.5">
+          <div className="flex min-w-0 items-center gap-3">
+            <Link
+              href="/app"
+              className="shrink-0 text-[15px] font-semibold tracking-tight text-foreground"
+            >
               Ex Communicator
             </Link>
-            <span className="rounded-full bg-background px-2.5 py-1 text-xs font-medium text-muted">
-              App shell
-            </span>
-            <span className="text-sm text-muted" title={user.email ?? undefined}>
-              {user.email}
-            </span>
+            {user.email ? (
+              <span
+                className="hidden truncate text-sm text-muted sm:inline"
+                title={user.email}
+              >
+                {user.email}
+              </span>
+            ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <AppNav />
+            <div className="hidden h-5 w-px bg-border sm:block" aria-hidden />
             <SignOutButton />
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">{children}</main>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+        {children}
+      </main>
     </div>
   );
 }

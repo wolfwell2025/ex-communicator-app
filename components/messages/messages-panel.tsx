@@ -24,6 +24,9 @@ function formatTime(iso: string): string {
   }
 }
 
+const secondaryBtn =
+  "inline-flex items-center justify-center rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-[var(--shadow-sm)] transition-colors hover:border-border-strong hover:bg-surface";
+
 export function MessagesPanel({
   householdId,
   householdName,
@@ -143,38 +146,46 @@ export function MessagesPanel({
   }
 
   return (
-    <div className="flex h-[min(70vh,720px)] flex-col gap-4">
+    <div className="flex h-[min(72vh,760px)] flex-col gap-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Messages</h1>
-          <p className="mt-1 text-sm text-muted">
-            Household: <span className="font-medium text-foreground">{householdName}</span>
+        <div className="min-w-0 space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            Messages
+          </h1>
+          <p className="text-sm text-muted">
+            Household{" "}
+            <span className="font-medium text-foreground">{householdName}</span>
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={downloadTranscript}
-            className="rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:border-accent"
-          >
+          <button type="button" onClick={downloadTranscript} className={secondaryBtn}>
             Download transcript
           </button>
-          <Link
-            href="/app/messages/export"
-            className="rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:border-accent"
-          >
+          <Link href="/app/messages/export" className={secondaryBtn}>
             Print / PDF export
           </Link>
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
-        <div className="flex-1 space-y-3 overflow-y-auto p-4">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-[var(--shadow-sm)]">
+        <div className="flex items-center justify-between gap-3 border-b border-border bg-surface/60 px-4 py-2.5">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted">
+            Thread
+          </p>
+          <p className="text-xs text-muted">
+            {messages.length} message{messages.length === 1 ? "" : "s"}
+          </p>
+        </div>
+
+        <div className="flex-1 space-y-3 overflow-y-auto bg-surface/40 px-4 py-4 sm:px-5">
           {messages.length === 0 ? (
-            <p className="text-sm text-muted">
-              No messages yet. Send the first one below. Messages cannot be edited
-              or deleted once sent.
-            </p>
+            <div className="flex h-full min-h-40 flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card px-6 py-10 text-center">
+              <p className="text-sm font-medium text-foreground">No messages yet</p>
+              <p className="mt-1 max-w-sm text-sm leading-6 text-muted">
+                Send the first message below. Messages cannot be edited or
+                deleted once sent.
+              </p>
+            </div>
           ) : (
             messages.map((message) => {
               const mine = message.sender_id === userId;
@@ -185,23 +196,27 @@ export function MessagesPanel({
               return (
                 <div
                   key={message.id}
-                  className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm ${
-                    mine
-                      ? "ml-auto bg-accent text-white"
-                      : "mr-auto bg-background border border-border text-foreground"
-                  }`}
+                  className={`flex ${mine ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`mb-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs ${
-                      mine ? "text-blue-100" : "text-muted"
+                    className={`max-w-[min(85%,36rem)] rounded-xl px-3.5 py-2.5 text-sm shadow-[var(--shadow-sm)] ${
+                      mine
+                        ? "bg-accent text-white"
+                        : "border border-border bg-card text-foreground"
                     }`}
                   >
-                    <span className="font-medium">{who}</span>
-                    <time dateTime={message.created_at}>
-                      {formatTime(message.created_at)}
-                    </time>
+                    <div
+                      className={`mb-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11px] ${
+                        mine ? "text-blue-100" : "text-muted"
+                      }`}
+                    >
+                      <span className="font-medium">{who}</span>
+                      <time dateTime={message.created_at}>
+                        {formatTime(message.created_at)}
+                      </time>
+                    </div>
+                    <p className="whitespace-pre-wrap leading-6">{message.body}</p>
                   </div>
-                  <p className="whitespace-pre-wrap leading-6">{message.body}</p>
                 </div>
               );
             })
@@ -214,11 +229,14 @@ export function MessagesPanel({
           className="border-t border-border bg-card p-3 sm:p-4"
         >
           {error ? (
-            <p className="mb-2 text-sm text-red-600" role="alert">
+            <p
+              className="mb-2 rounded-lg border border-red-200 bg-danger-soft px-3 py-2 text-sm text-danger"
+              role="alert"
+            >
               {error}
             </p>
           ) : null}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end">
             <label className="block flex-1 space-y-1.5">
               <span className="sr-only">Message</span>
               <textarea
@@ -226,20 +244,20 @@ export function MessagesPanel({
                 onChange={(e) => setBody(e.target.value)}
                 rows={3}
                 maxLength={10000}
-                placeholder="Write a message..."
-                className="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                placeholder="Write a message…"
+                className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-foreground shadow-[var(--shadow-sm)] placeholder:text-muted-foreground transition-colors hover:border-border-strong focus:border-accent focus:bg-card focus:outline-none focus:ring-2 focus:ring-[var(--accent-ring)]"
                 required
               />
             </label>
             <button
               type="submit"
               disabled={sending || !body.trim()}
-              className="rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60"
+              className="shrink-0 rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition-colors hover:bg-accent-hover disabled:opacity-60"
             >
-              {sending ? "Sending..." : "Send"}
+              {sending ? "Sending…" : "Send"}
             </button>
           </div>
-          <p className="mt-2 text-xs text-muted">
+          <p className="mt-2.5 text-xs leading-5 text-muted">
             Sent messages are permanent for the household record.
           </p>
         </form>

@@ -18,12 +18,14 @@ export default async function MessagesPage() {
   if (householdError || !household) {
     return (
       <div className="space-y-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Messages</h1>
-        <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          Messages
+        </h1>
+        <p className="rounded-xl border border-red-200 bg-danger-soft p-4 text-sm text-danger">
           Could not load or create your household
           {householdError ? `: ${householdError}` : "."} If this is the first
           run, paste{" "}
-          <code className="rounded bg-white px-1 py-0.5 text-xs">
+          <code className="rounded-md border border-red-200 bg-white px-1.5 py-0.5 text-xs text-foreground">
             supabase/migrations/001_households_messages.sql
           </code>{" "}
           into the Supabase SQL Editor and try again.
@@ -40,7 +42,7 @@ export default async function MessagesPage() {
   return (
     <div className="space-y-3">
       {messagesError ? (
-        <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <p className="rounded-xl border border-red-200 bg-danger-soft p-3.5 text-sm text-danger">
           Could not load messages: {messagesError}
         </p>
       ) : null}

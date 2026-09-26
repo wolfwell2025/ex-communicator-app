@@ -31,11 +31,11 @@ export default async function MessagesExportPage() {
     return (
       <div className="space-y-3">
         <h1 className="text-2xl font-semibold tracking-tight">Export</h1>
-        <p className="text-sm text-red-700">
+        <p className="text-sm text-danger">
           Could not load household
           {householdError ? `: ${householdError}` : "."}
         </p>
-        <Link href="/app/messages" className="text-sm text-accent underline">
+        <Link href="/app/messages" className="text-sm font-medium text-accent hover:text-accent-hover">
           Back to messages
         </Link>
       </div>
@@ -51,18 +51,18 @@ export default async function MessagesExportPage() {
   return (
     <div className="space-y-6 print:space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Transcript export
           </h1>
-          <p className="mt-1 text-sm text-muted">
+          <p className="text-sm text-muted">
             Print this page or save as PDF from your browser.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
             href="/app/messages"
-            className="rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium"
+            className="rounded-lg border border-border bg-card px-3.5 py-2 text-sm font-medium text-foreground shadow-[var(--shadow-sm)] transition-colors hover:border-border-strong hover:bg-surface"
           >
             Back to messages
           </Link>
@@ -70,10 +70,10 @@ export default async function MessagesExportPage() {
         </div>
       </div>
 
-      <article className="relative overflow-hidden rounded-xl border border-border bg-card p-6 shadow-sm print:border-0 print:shadow-none">
+      <article className="relative overflow-hidden rounded-xl border border-border bg-card p-6 shadow-[var(--shadow-sm)] print:border-0 print:shadow-none sm:p-8">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.07] print:opacity-[0.12]"
+          className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.05] print:opacity-[0.1]"
         >
           <p className="rotate-[-24deg] select-none text-4xl font-bold tracking-wide text-foreground sm:text-5xl">
             Ex Communicator export
@@ -81,10 +81,12 @@ export default async function MessagesExportPage() {
         </div>
 
         <header className="relative space-y-1 border-b border-border pb-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">
             Ex Communicator export
           </p>
-          <h2 className="text-xl font-semibold">{household.name}</h2>
+          <h2 className="text-xl font-semibold text-foreground">
+            {household.name}
+          </h2>
           <p className="text-sm text-muted">
             Exported: {formatTime(exportedAt)} ({exportedAt})
           </p>
@@ -92,10 +94,10 @@ export default async function MessagesExportPage() {
         </header>
 
         {messagesError ? (
-          <p className="relative mt-4 text-sm text-red-700">{messagesError}</p>
+          <p className="relative mt-4 text-sm text-danger">{messagesError}</p>
         ) : null}
 
-        <ol className="relative mt-4 space-y-4">
+        <ol className="relative mt-5 space-y-4">
           {messages.length === 0 ? (
             <li className="text-sm text-muted">No messages in this household.</li>
           ) : (
@@ -116,7 +118,7 @@ export default async function MessagesExportPage() {
                     </time>
                     <span className="font-medium text-foreground">{who}</span>
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground">
                     {message.body}
                   </p>
                 </li>

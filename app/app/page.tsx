@@ -43,23 +43,26 @@ export default async function AppHomePage() {
   const { household, error: householdError } = await ensureHousehold(supabase);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
+    <div className="space-y-8">
+      <div className="space-y-2">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          Dashboard
+        </h1>
+        <p className="max-w-2xl text-sm leading-6 text-muted">
           You are signed in
           {household ? (
             <>
               {" "}
-              to <span className="font-medium text-foreground">{household.name}</span>
+              to{" "}
+              <span className="font-medium text-foreground">{household.name}</span>
             </>
           ) : null}
           . Messages is live; other modules are still stubs.
         </p>
         {householdError ? (
-          <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <p className="mt-3 rounded-xl border border-amber-200 bg-warning-soft p-3.5 text-sm text-amber-900">
             Household setup needs the SQL migration. Paste{" "}
-            <code className="rounded bg-white px-1 py-0.5 text-xs">
+            <code className="rounded-md border border-amber-200 bg-white px-1.5 py-0.5 text-xs">
               supabase/migrations/001_households_messages.sql
             </code>{" "}
             into the Supabase SQL Editor, then refresh. ({householdError})
@@ -72,19 +75,19 @@ export default async function AppHomePage() {
           <Link
             key={module.href}
             href={module.href}
-            className="rounded-xl border border-border bg-card p-5 shadow-sm transition-colors hover:border-accent"
+            className="group rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-sm)] transition-colors hover:border-border-strong hover:bg-surface/60"
           >
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-base font-semibold text-foreground">
+              <h2 className="text-base font-semibold text-foreground group-hover:text-accent">
                 {module.title}
               </h2>
               {module.live ? (
-                <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
+                <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent">
                   Live
                 </span>
               ) : (
-                <span className="rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted">
-                  Stub
+                <span className="rounded-full bg-surface px-2 py-0.5 text-xs font-medium text-muted ring-1 ring-border">
+                  Coming soon
                 </span>
               )}
             </div>
