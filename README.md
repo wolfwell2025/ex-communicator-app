@@ -15,10 +15,11 @@ Next.js App Router starter (TypeScript + Tailwind + ESLint) with Supabase Auth w
 | `/auth/callback` | OAuth / PKCE code exchange |
 | `/auth/confirm` | Email OTP / magic-link confirmation |
 | `/app` | Authenticated shell (requires session) |
-| `/app/messages` | Messages stub |
+| `/app/messages` | Household messaging + transcript export |
 | `/app/calendar` | Calendar stub |
 | `/app/documents` | Documents stub |
 | `/app/expenses` | Expenses stub |
+| `/app/messages/export` | Print-friendly transcript (watermarked) |
 
 ## Local development
 
@@ -77,10 +78,19 @@ After setting Vercel env vars (see `VERCEL-ENV.md`), redeploy so Auth can comple
 - ESLint
 - Supabase (`@supabase/supabase-js`, `@supabase/ssr`)
 
+## Database migration (required for Messages)
+
+1. Open Supabase Dashboard → **SQL Editor** for project `pryvielnxaxylcxihgpk`.
+2. Paste and run [`supabase/migrations/001_households_messages.sql`](supabase/migrations/001_households_messages.sql).
+3. Confirm tables `profiles`, `households`, `household_members`, and `messages` exist.
+4. Sign in at `/login`, open `/app/messages`, send a message, then try **Download transcript** or **Print / PDF export**.
+
+The migration enables RLS, creates a profile on signup, and exposes `create_household` / `ensure_profile` RPCs. No service role key is required.
+
 ## Next steps
 
-1. Replace placeholder modules with the first product slice: messaging + transcripts, calendar, and document vault.
-2. Add Postgres tables / RLS for co-parent data once Auth is confirmed in production.
+1. Invite a second household member (share household membership).
+2. Calendar, documents, and expenses modules.
 
 ## Notes
 
