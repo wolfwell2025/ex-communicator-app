@@ -16,9 +16,10 @@ Next.js App Router starter (TypeScript + Tailwind + ESLint) with Supabase Auth w
 | `/auth/confirm` | Email OTP / magic-link confirmation |
 | `/app` | Authenticated shell (requires session) |
 | `/app/messages` | Household messaging + transcript export |
-| `/app/calendar` | Calendar stub |
+| `/app/calendar` | Shared custody calendar (private / propose / accept) |
 | `/app/documents` | Documents stub |
 | `/app/expenses` | Expenses stub |
+| `/app/invite/[token]` | Accept co-parent household invite |
 | `/app/messages/export` | Print-friendly transcript (watermarked) |
 
 ## Local development
@@ -78,19 +79,31 @@ After setting Vercel env vars (see `VERCEL-ENV.md`), redeploy so Auth can comple
 - ESLint
 - Supabase (`@supabase/supabase-js`, `@supabase/ssr`)
 
-## Database migration (required for Messages)
+## Database migrations
 
-1. Open Supabase Dashboard → **SQL Editor** for project `pryvielnxaxylcxihgpk`.
-2. Paste and run [`supabase/migrations/001_households_messages.sql`](supabase/migrations/001_households_messages.sql).
-3. Confirm tables `profiles`, `households`, `household_members`, and `messages` exist.
-4. Sign in at `/login`, open `/app/messages`, send a message, then try **Download transcript** or **Print / PDF export**.
+Open Supabase Dashboard → **SQL Editor** for project `pryvielnxaxylcxihgpk`. If the Supabase CLI is not linked, paste each file and Run (in order):
 
-The migration enables RLS, creates a profile on signup, and exposes `create_household` / `ensure_profile` RPCs. No service role key is required.
+1. [`supabase/migrations/001_households_messages.sql`](supabase/migrations/001_households_messages.sql) — profiles, households, messages, RLS helpers.
+2. [`supabase/migrations/002_calendar_events.sql`](supabase/migrations/002_calendar_events.sql) — `calendar_events` + `personal_calendar_connections`, privacy RLS (`private` / `pending` / `shared`).
+3. [`supabase/migrations/003_household_invites.sql`](supabase/migrations/003_household_invites.sql) — co-parent email invites (`create_household_invite` / `accept_household_invite`).
+
+Confirm tables exist, then sign in and open `/app`, `/app/calendar`, and `/app/messages`.
+
+### Calendar privacy
+
+- **private** — only the creator can see the event (co-parent sees nothing).
+- **pending** — proposed to household; appears in Share requests for the co-parent, not on the shared month grid until accepted.
+- **shared** — visible to all household members; Reference calendar chip uses shared events only.
+- Google Calendar OAuth is stubbed (`personal_calendar_connections` + Connect button).
+
+### Invite co-parent
+
+On Dashboard or Calendar, use **Invite co-parent**: enter their email → Copy link → they sign up/log in with that **same email** → open `/app/invite/[token]` → Accept. They join your household.
 
 ## Next steps
 
-1. Invite a second household member (share household membership).
-2. Calendar, documents, and expenses modules.
+1. Two-account propose/accept calendar test (see ship notes).
+2. Documents and expenses modules; Google Calendar OAuth sync.
 
 ## Notes
 

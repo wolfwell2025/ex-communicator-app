@@ -33,3 +33,93 @@ export type MessageWithSender = Message & {
   sender_email: string | null;
   sender_display_name: string | null;
 };
+
+export type CalendarEventType =
+  | "parenting_time"
+  | "school"
+  | "medical"
+  | "activity"
+  | "other";
+
+/** private = only creator; pending = proposed (not on shared grid); shared = household-visible */
+export type CalendarVisibility = "private" | "pending" | "shared";
+
+export type CalendarEventSource =
+  | "manual"
+  | "google"
+  | "apple"
+  | "outlook"
+  | "other";
+
+export type CalendarEvent = {
+  id: string;
+  household_id: string;
+  title: string;
+  description: string | null;
+  starts_at: string;
+  ends_at: string;
+  all_day: boolean;
+  location: string | null;
+  event_type: CalendarEventType;
+  visibility: CalendarVisibility;
+  proposed_at: string | null;
+  proposed_by: string | null;
+  accepted_at: string | null;
+  accepted_by: string | null;
+  source: CalendarEventSource;
+  external_id: string | null;
+  connection_id: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PersonalCalendarProvider = "google" | "apple" | "outlook" | "other";
+
+export type PersonalCalendarConnectionStatus =
+  | "disconnected"
+  | "pending"
+  | "connected"
+  | "error";
+
+export type PersonalCalendarConnection = {
+  id: string;
+  user_id: string;
+  provider: PersonalCalendarProvider;
+  status: PersonalCalendarConnectionStatus;
+  external_account_email: string | null;
+  external_calendar_id: string | null;
+  last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type HouseholdInviteStatus =
+  | "pending"
+  | "accepted"
+  | "revoked"
+  | "expired";
+
+export type HouseholdInvite = {
+  id: string;
+  household_id: string;
+  email: string;
+  email_normalized: string;
+  token: string;
+  invited_by: string;
+  status: HouseholdInviteStatus;
+  created_at: string;
+  accepted_at: string | null;
+  accepted_by: string | null;
+  expires_at: string;
+};
+
+export type HouseholdInvitePeek = {
+  id: string;
+  household_id: string;
+  household_name: string;
+  email: string;
+  status: HouseholdInviteStatus;
+  expires_at: string;
+  invited_by_label: string;
+};

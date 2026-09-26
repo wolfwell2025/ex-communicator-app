@@ -64,9 +64,9 @@ const KIND_META: Record<
   },
   calendar: {
     title: "Reference a calendar event",
-    emptyTitle: "No calendar events yet",
+    emptyTitle: "No shared calendar events yet",
     emptyBody:
-      "Calendar is coming soon. Add a real event when the module is live — we will not invent fake events.",
+      "Only household-shared events appear here. Create an event on Calendar, propose it, and have the co-parent accept — we will not invent fake events.",
     addHref: "/app/calendar",
     addLabel: "Open Calendar",
   },

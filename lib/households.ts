@@ -26,23 +26,39 @@ export async function ensureHousehold(
 
   const { data: memberships, error: memberError } = await supabase
     .from("household_members")
-    .select("household_id, households ( id, name, created_by, created_at )")
-    .limit(1);
+    .select("household_id, households ( id, name, created_by, created_at )");
 
   if (memberError) {
     return { household: null, profile, error: memberError.message };
   }
 
-  const first = memberships?.[0] as
-    | { household_id: string; households: Household | Household[] | null }
-    | undefined;
+  type MembershipRow = {
+    household_id: string;
+    households: Household | Household[] | null;
+  };
 
-  if (first?.households) {
-    const household = Array.isArray(first.households)
-      ? first.households[0]
-      : first.households;
-    if (household) {
-      return { household, profile, error: null };
+  const rows = (memberships ?? []) as MembershipRow[];
+
+  if (rows.length > 0) {
+    // Prefer a household that already has another member (shared co-parent home)
+    const counts = await Promise.all(
+      rows.map(async (row) => {
+        const { count } = await supabase
+          .from("household_members")
+          .select("*", { count: "exact", head: true })
+          .eq("household_id", row.household_id);
+        return { row, count: count ?? 0 };
+      })
+    );
+    counts.sort((a, b) => b.count - a.count);
+    const chosen = counts[0]?.row;
+    if (chosen?.households) {
+      const household = Array.isArray(chosen.households)
+        ? chosen.households[0]
+        : chosen.households;
+      if (household) {
+        return { household, profile, error: null };
+      }
     }
   }
 

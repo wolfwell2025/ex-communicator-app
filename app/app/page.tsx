@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { InviteCoParent } from "@/components/household/invite-co-parent";
 import { ensureHousehold } from "@/lib/households";
 import { createClient } from "@/lib/supabase/server";
 
@@ -14,8 +15,8 @@ const modules = [
   {
     href: "/app/calendar",
     title: "Calendar",
-    body: "Shared parenting schedule and event reminders.",
-    live: false,
+    body: "Shared parenting schedule with private events and propose/accept sharing.",
+    live: true,
     icon: "📅",
   },
   {
@@ -64,7 +65,7 @@ export default async function AppHomePage() {
               <span className="font-semibold text-foreground">{household.name}</span>
             </>
           ) : null}
-          . Messages is live; other modules are still stubs.
+          . Messages and Calendar are live; documents and expenses are still stubs.
         </p>
         {householdError ? (
           <p className="mt-3 rounded-2xl border border-amber-200 bg-warning-soft p-4 text-sm text-amber-900">
@@ -76,6 +77,13 @@ export default async function AppHomePage() {
           </p>
         ) : null}
       </div>
+
+      {household ? (
+        <InviteCoParent
+          householdId={household.id}
+          householdName={household.name}
+        />
+      ) : null}
 
       <div className="grid gap-5 sm:grid-cols-2">
         {modules.map((module) => (

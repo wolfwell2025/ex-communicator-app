@@ -17,8 +17,15 @@ import {
   type ToneObjective,
 } from "@/lib/tone-check";
 import type { FactLine } from "@/lib/reference-generate";
+import {
+  eventsToPickerItems,
+  listSharedCalendarEvents,
+} from "@/lib/calendar";
 import type { MessageWithSender } from "@/lib/types";
-import { ReferencePicker } from "@/components/messages/reference-picker";
+import {
+  ReferencePicker,
+  type PickerCalendarItem,
+} from "@/components/messages/reference-picker";
 
 type ToneCoach = {
   severity?: string;
@@ -81,6 +88,7 @@ export function MessagesPanel({
     text: string;
     facts: FactLine[];
   } | null>(null);
+  const [calendarEvents, setCalendarEvents] = useState<PickerCalendarItem[]>([]);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const toneRequestId = useRef(0);
   const lastFlaggedTextRef = useRef<string | null>(null);
@@ -92,18 +100,36 @@ export function MessagesPanel({
       buildClientToneContext({
         messages,
         userId,
-        // Real DB only — empty until calendar / documents / calls tables exist:
-        calendarEvents: [],
+        // Shared events only — private/pending never leak into tone or Reference
+        calendarEvents,
         documents: [],
         callLogs: [],
       }),
-    [messages, userId]
+    [messages, userId, calendarEvents]
   );
 
   const pickerMessages = useMemo(
     () => messagesToContextRows(messages, userId),
     [messages, userId]
   );
+
+  const refreshCalendar = useCallback(async () => {
+    const { events, error: calErr } = await listSharedCalendarEvents(
+      supabase,
+      householdId,
+      { from: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString(), limit: 40 }
+    );
+    if (calErr) {
+      // Table may not exist yet — keep empty, never invent demos
+      setCalendarEvents([]);
+      return;
+    }
+    setCalendarEvents(eventsToPickerItems(events));
+  }, [householdId, supabase]);
+
+  useEffect(() => {
+    void refreshCalendar();
+  }, [refreshCalendar]);
 
   const escalated = flagCount >= ESCALATE_AFTER_FLAGS;
   const bodyHostile = looksHostileClient(body);
@@ -731,7 +757,7 @@ export function MessagesPanel({
           onClose={() => setPickerKind(null)}
           onGenerated={onReferenceGenerated}
           messages={pickerMessages}
-          calendarEvents={[]}
+          calendarEvents={calendarEvents}
           documents={[]}
           callLogs={[]}
         />
