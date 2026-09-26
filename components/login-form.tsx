@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { getSiteUrl } from "@/lib/supabase/env";
 
 type Mode = "password" | "magic";
 
@@ -28,7 +29,8 @@ export function LoginForm() {
     setMessage(null);
 
     const supabase = createClient();
-    const emailRedirectTo = `${window.location.origin}/auth/confirm?next=${encodeURIComponent(next)}`;
+    // Prefer NEXT_PUBLIC_SITE_URL so production email links never use localhost.
+    const emailRedirectTo = `${getSiteUrl()}/auth/confirm?next=${encodeURIComponent(next)}`;
 
     try {
       if (mode === "magic") {

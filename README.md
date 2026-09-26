@@ -45,6 +45,7 @@ See `.env.local.example` and `VERCEL-ENV.md`.
 
 Public (safe for the browser / Vercel):
 
+- `NEXT_PUBLIC_SITE_URL` (canonical origin for auth email redirects; set to `https://ex-communicator-app.vercel.app` in production)
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (optional alias; same value as publishable)

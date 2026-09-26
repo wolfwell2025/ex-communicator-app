@@ -8,11 +8,16 @@ for this MVP. Do not invent or paste a `service_role` key unless you need admin 
 
 | Name | Value |
 | --- | --- |
+| `NEXT_PUBLIC_SITE_URL` | `https://ex-communicator-app.vercel.app` |
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://pryvielnxaxylcxihgpk.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable__JMOlCmSnK7yCYnbuWVFpg_oyISbnKi` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `sb_publishable__JMOlCmSnK7yCYnbuWVFpg_oyISbnKi` |
 
-The third var is an alias of the publishable key so any code/docs that still
+`NEXT_PUBLIC_SITE_URL` is the canonical origin used for auth email redirects
+(`emailRedirectTo`). Without it, confirmation/magic links can fall back to
+Supabase Site URL (often still `http://localhost:3000`).
+
+The ANON var is an alias of the publishable key so any code/docs that still
 expect `ANON` keep working. Same value in both places.
 
 ## Supabase Auth URL config
