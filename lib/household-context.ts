@@ -1,8 +1,9 @@
 /**
  * Household context for tone coaching rewrites.
- * Messages + shared calendar are live; documents / calls stay empty until
- * those modules ship. Prefer empty/real over fabricated demo rows.
- * Calendar context must use visibility=shared only (never private/pending).
+ * Messages + shared calendar + shared documents are live; calls stay empty
+ * until that module ships. Prefer empty/real over fabricated demo rows.
+ * Calendar / documents context must use visibility=shared only
+ * (never private/pending).
  */
 
 export type ContextMessage = {
@@ -54,7 +55,7 @@ export const REFERENCE_CHIPS: Array<{
 }> = [
   { id: "message", label: "Reference last message", stub: false },
   { id: "calendar", label: "Reference calendar", stub: false },
-  { id: "document", label: "Reference document", stub: true },
+  { id: "document", label: "Reference document", stub: false },
   { id: "call", label: "Reference call", stub: true },
 ];
 

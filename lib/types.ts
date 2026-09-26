@@ -129,3 +129,34 @@ export type HouseholdInvitePeek = {
   expires_at: string;
   invited_by_label: string;
 };
+
+export type DocumentCategory =
+  | "decree"
+  | "school"
+  | "medical"
+  | "legal"
+  | "expense"
+  | "other";
+
+/** private = uploader only; pending = proposed; shared = household vault */
+export type DocumentVisibility = "private" | "pending" | "shared";
+
+export type HouseholdDocument = {
+  id: string;
+  household_id: string;
+  title: string;
+  description: string | null;
+  category: DocumentCategory;
+  file_path: string;
+  file_name: string;
+  mime_type: string;
+  size_bytes: number;
+  visibility: DocumentVisibility;
+  proposed_at: string | null;
+  proposed_by: string | null;
+  accepted_at: string | null;
+  accepted_by: string | null;
+  uploaded_by: string;
+  created_at: string;
+  updated_at: string;
+};

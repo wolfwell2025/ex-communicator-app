@@ -74,7 +74,7 @@ const KIND_META: Record<
     title: "Reference a document",
     emptyTitle: "No shared documents yet",
     emptyBody:
-      "Documents vault is coming soon. Add a real file when available — we will not invent fake documents.",
+      "Only household-shared documents appear here. Upload a file on Documents (shared by default) — we will not invent fake documents.",
     addHref: "/app/documents",
     addLabel: "Open Documents",
   },

@@ -17,7 +17,7 @@ Next.js App Router starter (TypeScript + Tailwind + ESLint) with Supabase Auth w
 | `/app` | Authenticated shell (requires session) |
 | `/app/messages` | Household messaging + transcript export |
 | `/app/calendar` | Shared custody calendar (private / propose / accept) |
-| `/app/documents` | Documents stub |
+| `/app/documents` | Household document vault (upload / share / reference) |
 | `/app/expenses` | Expenses stub |
 | `/app/invite/[token]` | Accept co-parent household invite |
 | `/app/messages/export` | Print-friendly transcript (watermarked) |
@@ -87,8 +87,9 @@ Open Supabase Dashboard → **SQL Editor** for project `pryvielnxaxylcxihgpk`. I
 2. [`supabase/migrations/002_calendar_events.sql`](supabase/migrations/002_calendar_events.sql) — `calendar_events` + `personal_calendar_connections`, privacy RLS (`private` / `pending` / `shared`).
 3. [`supabase/migrations/003_household_invites.sql`](supabase/migrations/003_household_invites.sql) — co-parent email invites (`create_household_invite` / `accept_household_invite`).
 4. [`supabase/migrations/004_calendar_oauth_tokens.sql`](supabase/migrations/004_calendar_oauth_tokens.sql) — multi-calendar OAuth columns + imported-events-must-insert-private trigger.
+5. [`supabase/migrations/005_documents.sql`](supabase/migrations/005_documents.sql) — `documents` table + private Storage bucket `documents` with RLS.
 
-Confirm tables exist, then sign in and open `/app`, `/app/calendar`, and `/app/messages`.
+Confirm tables exist, then sign in and open `/app`, `/app/calendar`, `/app/messages`, and `/app/documents`.
 
 ### Calendar privacy
 
@@ -96,6 +97,13 @@ Confirm tables exist, then sign in and open `/app`, `/app/calendar`, and `/app/m
 - **pending** — proposed to household; appears in Share requests for the co-parent, not on the shared month grid until accepted.
 - **shared** — visible to all household members; Reference calendar chip uses shared events only.
 - **Google sync** — connect multiple calendars (personal / work / family). Imports are **always private**. Connecting never auto-shares. Share only via Propose → Accept. See `GOOGLE-SETUP.md`.
+
+### Documents privacy
+
+- **shared** (default) — visible to all household members; Reference document chip uses shared docs only. Best for decrees, school, and medical files both parents need.
+- **private** — only the uploader (optional checkbox at upload). Co-parent sees nothing until Propose → Accept.
+- **pending** — proposed to household; appears in Documents Share requests for the co-parent.
+- **Storage** — private bucket `documents`; paths `{household_id}/{user_id}/…`; download via short-lived signed URLs. Migration 005 creates the bucket + Storage RLS.
 
 ### Invite co-parent
 
@@ -108,7 +116,8 @@ Follow [`GOOGLE-SETUP.md`](GOOGLE-SETUP.md) for OAuth credentials, Maps key, env
 ## Next steps
 
 1. Finish Google Cloud OAuth + Places keys; run migration 004; connect multiple calendars.
-2. Documents and expenses modules.
+2. Run migration 005; upload a decree PDF; confirm Reference document in Messages.
+3. Expenses module.
 
 ## Notes
 

@@ -21,10 +21,15 @@ import {
   eventsToPickerItems,
   listSharedCalendarEvents,
 } from "@/lib/calendar";
+import {
+  documentsToPickerItems,
+  listSharedDocuments,
+} from "@/lib/documents";
 import type { MessageWithSender } from "@/lib/types";
 import {
   ReferencePicker,
   type PickerCalendarItem,
+  type PickerDocumentItem,
 } from "@/components/messages/reference-picker";
 
 type ToneCoach = {
@@ -89,6 +94,7 @@ export function MessagesPanel({
     facts: FactLine[];
   } | null>(null);
   const [calendarEvents, setCalendarEvents] = useState<PickerCalendarItem[]>([]);
+  const [documents, setDocuments] = useState<PickerDocumentItem[]>([]);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const toneRequestId = useRef(0);
   const lastFlaggedTextRef = useRef<string | null>(null);
@@ -100,12 +106,12 @@ export function MessagesPanel({
       buildClientToneContext({
         messages,
         userId,
-        // Shared events only — private/pending never leak into tone or Reference
+        // Shared only — private/pending never leak into tone or Reference
         calendarEvents,
-        documents: [],
+        documents,
         callLogs: [],
       }),
-    [messages, userId, calendarEvents]
+    [messages, userId, calendarEvents, documents]
   );
 
   const pickerMessages = useMemo(
@@ -127,9 +133,23 @@ export function MessagesPanel({
     setCalendarEvents(eventsToPickerItems(events));
   }, [householdId, supabase]);
 
+  const refreshDocuments = useCallback(async () => {
+    const { documents: rows, error: docsErr } = await listSharedDocuments(
+      supabase,
+      householdId,
+      { limit: 40 }
+    );
+    if (docsErr) {
+      setDocuments([]);
+      return;
+    }
+    setDocuments(documentsToPickerItems(rows));
+  }, [householdId, supabase]);
+
   useEffect(() => {
     void refreshCalendar();
-  }, [refreshCalendar]);
+    void refreshDocuments();
+  }, [refreshCalendar, refreshDocuments]);
 
   const escalated = flagCount >= ESCALATE_AFTER_FLAGS;
   const bodyHostile = looksHostileClient(body);
@@ -746,7 +766,7 @@ export function MessagesPanel({
           Sent messages are permanent for the household record.
           {softBlocked
             ? " Send is paused until you pick an objective or use a calm rewrite."
-            : " Reference chips open a picker of real items only — empty modules show coming soon, never fake demos."}
+            : " Reference chips open a picker of real shared items only — never fake demos."}
         </p>
       </form>
 
@@ -758,7 +778,7 @@ export function MessagesPanel({
           onGenerated={onReferenceGenerated}
           messages={pickerMessages}
           calendarEvents={calendarEvents}
-          documents={[]}
+          documents={documents}
           callLogs={[]}
         />
       ) : null}
