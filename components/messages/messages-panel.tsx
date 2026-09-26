@@ -24,8 +24,15 @@ function formatTime(iso: string): string {
   }
 }
 
+function initials(label: string): string {
+  const parts = label.trim().split(/[\s@._-]+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+}
+
 const secondaryBtn =
-  "inline-flex items-center justify-center rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-[var(--shadow-sm)] transition-colors hover:border-border-strong hover:bg-surface";
+  "inline-flex items-center justify-center rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-semibold text-foreground shadow-[var(--shadow-sm)] transition-colors hover:border-border-strong hover:bg-surface";
 
 export function MessagesPanel({
   householdId,
@@ -146,15 +153,22 @@ export function MessagesPanel({
   }
 
   return (
-    <div className="flex h-[min(72vh,760px)] flex-col gap-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="flex h-[min(78vh,840px)] flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-lg)]">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-card px-5 py-4 sm:px-6">
         <div className="min-w-0 space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Messages
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+              Messages
+            </h1>
+            <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-accent">
+              Live
+            </span>
+          </div>
           <p className="text-sm text-muted">
             Household{" "}
-            <span className="font-medium text-foreground">{householdName}</span>
+            <span className="font-semibold text-foreground">{householdName}</span>
+            <span className="mx-2 text-border-strong">·</span>
+            {messages.length} message{messages.length === 1 ? "" : "s"}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -162,106 +176,116 @@ export function MessagesPanel({
             Download transcript
           </button>
           <Link href="/app/messages/export" className={secondaryBtn}>
-            Print / PDF export
+            Print / PDF
           </Link>
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-[var(--shadow-sm)]">
-        <div className="flex items-center justify-between gap-3 border-b border-border bg-surface/60 px-4 py-2.5">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted">
-            Thread
-          </p>
-          <p className="text-xs text-muted">
-            {messages.length} message{messages.length === 1 ? "" : "s"}
-          </p>
-        </div>
-
-        <div className="flex-1 space-y-3 overflow-y-auto bg-surface/40 px-4 py-4 sm:px-5">
-          {messages.length === 0 ? (
-            <div className="flex h-full min-h-40 flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card px-6 py-10 text-center">
-              <p className="text-sm font-medium text-foreground">No messages yet</p>
-              <p className="mt-1 max-w-sm text-sm leading-6 text-muted">
-                Send the first message below. Messages cannot be edited or
-                deleted once sent.
-              </p>
+      <div className="flex-1 space-y-4 overflow-y-auto bg-background px-4 py-5 sm:px-6">
+        {messages.length === 0 ? (
+          <div className="flex h-full min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card px-6 py-12 text-center shadow-[var(--shadow-sm)]">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-2xl">
+              ✉️
             </div>
-          ) : (
-            messages.map((message) => {
-              const mine = message.sender_id === userId;
-              const who =
-                message.sender_email ??
-                message.sender_display_name ??
-                "Unknown sender";
-              return (
+            <p className="text-lg font-semibold text-foreground">No messages yet</p>
+            <p className="mt-2 max-w-md text-sm leading-6 text-muted">
+              Send the first message below. Messages cannot be edited or deleted
+              once sent — that keeps the household record court-ready.
+            </p>
+          </div>
+        ) : (
+          messages.map((message) => {
+            const mine = message.sender_id === userId;
+            const who =
+              message.sender_display_name ??
+              message.sender_email ??
+              "Unknown sender";
+            return (
+              <div
+                key={message.id}
+                className={`flex items-end gap-2.5 ${mine ? "justify-end" : "justify-start"}`}
+              >
+                {!mine ? (
+                  <div
+                    className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface text-xs font-bold text-muted ring-1 ring-border"
+                    aria-hidden
+                  >
+                    {initials(who)}
+                  </div>
+                ) : null}
                 <div
-                  key={message.id}
-                  className={`flex ${mine ? "justify-end" : "justify-start"}`}
+                  className={`max-w-[min(88%,34rem)] px-4 py-3 text-[15px] shadow-[var(--shadow-sm)] ${
+                    mine
+                      ? "rounded-3xl rounded-br-md bg-accent text-white"
+                      : "rounded-3xl rounded-bl-md border border-border bg-card text-foreground"
+                  }`}
                 >
                   <div
-                    className={`max-w-[min(85%,36rem)] rounded-xl px-3.5 py-2.5 text-sm shadow-[var(--shadow-sm)] ${
-                      mine
-                        ? "bg-accent text-white"
-                        : "border border-border bg-card text-foreground"
+                    className={`mb-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11px] font-medium ${
+                      mine ? "text-blue-100" : "text-muted"
                     }`}
                   >
-                    <div
-                      className={`mb-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11px] ${
-                        mine ? "text-blue-100" : "text-muted"
-                      }`}
-                    >
-                      <span className="font-medium">{who}</span>
-                      <time dateTime={message.created_at}>
-                        {formatTime(message.created_at)}
-                      </time>
-                    </div>
-                    <p className="whitespace-pre-wrap leading-6">{message.body}</p>
+                    <span>{who}</span>
+                    <time dateTime={message.created_at}>
+                      {formatTime(message.created_at)}
+                    </time>
                   </div>
+                  <p className="whitespace-pre-wrap leading-7">{message.body}</p>
                 </div>
-              );
-            })
-          )}
-          <div ref={bottomRef} />
-        </div>
-
-        <form
-          onSubmit={onSend}
-          className="border-t border-border bg-card p-3 sm:p-4"
-        >
-          {error ? (
-            <p
-              className="mb-2 rounded-lg border border-red-200 bg-danger-soft px-3 py-2 text-sm text-danger"
-              role="alert"
-            >
-              {error}
-            </p>
-          ) : null}
-          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end">
-            <label className="block flex-1 space-y-1.5">
-              <span className="sr-only">Message</span>
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                rows={3}
-                maxLength={10000}
-                placeholder="Write a message…"
-                className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-foreground shadow-[var(--shadow-sm)] placeholder:text-muted-foreground transition-colors hover:border-border-strong focus:border-accent focus:bg-card focus:outline-none focus:ring-2 focus:ring-[var(--accent-ring)]"
-                required
-              />
-            </label>
-            <button
-              type="submit"
-              disabled={sending || !body.trim()}
-              className="shrink-0 rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition-colors hover:bg-accent-hover disabled:opacity-60"
-            >
-              {sending ? "Sending…" : "Send"}
-            </button>
-          </div>
-          <p className="mt-2.5 text-xs leading-5 text-muted">
-            Sent messages are permanent for the household record.
-          </p>
-        </form>
+                {mine ? (
+                  <div
+                    className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-white"
+                    aria-hidden
+                  >
+                    You
+                  </div>
+                ) : null}
+              </div>
+            );
+          })
+        )}
+        <div ref={bottomRef} />
       </div>
+
+      <form
+        onSubmit={onSend}
+        className="border-t border-border bg-card px-4 py-4 sm:px-6"
+      >
+        {error ? (
+          <p
+            className="mb-3 rounded-xl border border-red-200 bg-danger-soft px-3.5 py-2.5 text-sm text-danger"
+            role="alert"
+          >
+            {error}
+          </p>
+        ) : null}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <label className="block flex-1 space-y-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+              New message
+            </span>
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={3}
+              maxLength={10000}
+              placeholder="Write a clear, calm message…"
+              className="w-full resize-y rounded-2xl border border-border bg-background px-4 py-3 text-[15px] text-foreground shadow-[var(--shadow-sm)] placeholder:text-muted-foreground transition-colors hover:border-border-strong focus:border-accent focus:bg-card focus:outline-none focus:ring-2 focus:ring-[var(--accent-ring)]"
+              required
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={sending || !body.trim()}
+            className="shrink-0 rounded-2xl bg-accent px-6 py-3.5 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition-colors hover:bg-accent-hover disabled:opacity-60"
+          >
+            {sending ? "Sending…" : "Send message"}
+          </button>
+        </div>
+        <p className="mt-3 text-xs leading-5 text-muted">
+          Sent messages are permanent for the household record.
+        </p>
+      </form>
     </div>
   );
 }

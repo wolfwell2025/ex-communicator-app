@@ -17,11 +17,11 @@ export default async function MessagesPage() {
 
   if (householdError || !household) {
     return (
-      <div className="space-y-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+      <div className="space-y-4">
+        <h1 className="text-4xl font-semibold tracking-tight text-foreground">
           Messages
         </h1>
-        <p className="rounded-xl border border-red-200 bg-danger-soft p-4 text-sm text-danger">
+        <p className="rounded-2xl border border-red-200 bg-danger-soft p-5 text-sm text-danger">
           Could not load or create your household
           {householdError ? `: ${householdError}` : "."} If this is the first
           run, paste{" "}
@@ -40,9 +40,9 @@ export default async function MessagesPage() {
   );
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {messagesError ? (
-        <p className="rounded-xl border border-red-200 bg-danger-soft p-3.5 text-sm text-danger">
+        <p className="rounded-2xl border border-red-200 bg-danger-soft p-4 text-sm text-danger">
           Could not load messages: {messagesError}
         </p>
       ) : null}

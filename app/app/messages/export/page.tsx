@@ -52,7 +52,7 @@ export default async function MessagesExportPage() {
     <div className="space-y-6 print:space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             Transcript export
           </h1>
           <p className="text-sm text-muted">
@@ -62,7 +62,7 @@ export default async function MessagesExportPage() {
         <div className="flex flex-wrap gap-2">
           <Link
             href="/app/messages"
-            className="rounded-lg border border-border bg-card px-3.5 py-2 text-sm font-medium text-foreground shadow-[var(--shadow-sm)] transition-colors hover:border-border-strong hover:bg-surface"
+            className="rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-semibold text-foreground shadow-[var(--shadow-sm)] transition-colors hover:border-border-strong hover:bg-surface"
           >
             Back to messages
           </Link>
@@ -70,7 +70,7 @@ export default async function MessagesExportPage() {
         </div>
       </div>
 
-      <article className="relative overflow-hidden rounded-xl border border-border bg-card p-6 shadow-[var(--shadow-sm)] print:border-0 print:shadow-none sm:p-8">
+      <article className="relative overflow-hidden rounded-3xl border border-border bg-card p-6 shadow-[var(--shadow-md)] print:border-0 print:shadow-none sm:p-8">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.05] print:opacity-[0.1]"

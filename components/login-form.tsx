@@ -8,7 +8,7 @@ import { getSiteUrl } from "@/lib/supabase/env";
 type Mode = "password" | "magic";
 
 const fieldClass =
-  "w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-foreground shadow-[var(--shadow-sm)] placeholder:text-muted-foreground transition-colors hover:border-border-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-[var(--accent-ring)]";
+  "w-full rounded-xl border border-border bg-background px-3.5 py-3 text-sm text-foreground shadow-[var(--shadow-sm)] placeholder:text-muted-foreground transition-colors hover:border-border-strong focus:border-accent focus:bg-card focus:outline-none focus:ring-2 focus:ring-[var(--accent-ring)]";
 
 export function LoginForm() {
   const router = useRouter();
@@ -80,14 +80,14 @@ export function LoginForm() {
   }
 
   return (
-    <form className="mt-6 space-y-4" onSubmit={onSubmit}>
-      <div className="flex rounded-lg border border-border bg-surface p-1 text-sm">
+    <form className="mt-7 space-y-4" onSubmit={onSubmit}>
+      <div className="flex rounded-2xl border border-border bg-surface p-1.5 text-sm">
         <button
           type="button"
           onClick={() => setMode("password")}
-          className={`flex-1 rounded-md px-3 py-1.5 font-medium transition-colors ${
+          className={`flex-1 rounded-xl px-3 py-2 font-semibold transition-colors ${
             mode === "password"
-              ? "bg-card text-foreground shadow-sm ring-1 ring-border"
+              ? "bg-card text-accent shadow-[var(--shadow-sm)] ring-1 ring-border"
               : "text-muted hover:text-foreground"
           }`}
         >
@@ -96,9 +96,9 @@ export function LoginForm() {
         <button
           type="button"
           onClick={() => setMode("magic")}
-          className={`flex-1 rounded-md px-3 py-1.5 font-medium transition-colors ${
+          className={`flex-1 rounded-xl px-3 py-2 font-semibold transition-colors ${
             mode === "magic"
-              ? "bg-card text-foreground shadow-sm ring-1 ring-border"
+              ? "bg-card text-accent shadow-[var(--shadow-sm)] ring-1 ring-border"
               : "text-muted hover:text-foreground"
           }`}
         >
@@ -107,7 +107,7 @@ export function LoginForm() {
       </div>
 
       <label className="block space-y-1.5">
-        <span className="text-sm font-medium text-foreground">Email</span>
+        <span className="text-sm font-semibold text-foreground">Email</span>
         <input
           type="email"
           required
@@ -121,7 +121,7 @@ export function LoginForm() {
 
       {mode === "password" ? (
         <label className="block space-y-1.5">
-          <span className="text-sm font-medium text-foreground">Password</span>
+          <span className="text-sm font-semibold text-foreground">Password</span>
           <input
             type="password"
             required
@@ -137,7 +137,7 @@ export function LoginForm() {
 
       {error ? (
         <p
-          className="rounded-lg border border-red-200 bg-danger-soft px-3 py-2 text-sm text-danger"
+          className="rounded-xl border border-red-200 bg-danger-soft px-3.5 py-2.5 text-sm text-danger"
           role="alert"
         >
           {error}
@@ -145,7 +145,7 @@ export function LoginForm() {
       ) : null}
       {message ? (
         <p
-          className="rounded-lg border border-border bg-accent-soft px-3 py-2 text-sm text-accent"
+          className="rounded-xl border border-border bg-accent-soft px-3.5 py-2.5 text-sm text-accent"
           role="status"
         >
           {message}
@@ -155,7 +155,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition-colors hover:bg-accent-hover disabled:opacity-60"
+        className="w-full rounded-2xl bg-accent px-4 py-3.5 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition-colors hover:bg-accent-hover disabled:opacity-60"
       >
         {loading
           ? "Working..."

@@ -15,7 +15,7 @@ export function AppNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex flex-wrap gap-0.5 rounded-lg border border-border bg-card p-0.5">
+    <nav className="flex flex-wrap gap-1 rounded-2xl border border-border bg-surface p-1.5">
       {links.map((link) => {
         const active = link.exact
           ? pathname === link.href
@@ -25,10 +25,10 @@ export function AppNav() {
           <Link
             key={link.href}
             href={link.href}
-            className={`rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
+            className={`rounded-xl px-3.5 py-2 text-sm font-semibold transition-colors ${
               active
-                ? "bg-surface text-foreground shadow-sm ring-1 ring-border"
-                : "text-muted hover:bg-surface/80 hover:text-foreground"
+                ? "bg-card text-accent shadow-[var(--shadow-sm)] ring-1 ring-border"
+                : "text-muted hover:bg-card/70 hover:text-foreground"
             }`}
           >
             {link.label}
