@@ -93,3 +93,35 @@ See **OUTLOOK-CALENDAR-SETUP.md** for Azure portal steps. Add these for Producti
 them until propose + accept in-app.
 
 Also run migration `011_outlook_calendar.sql` in Supabase SQL Editor.
+
+## Email intake (Gmail + Outlook mail)
+
+See **EMAIL-INTAKE-SETUP.md**. Reuses Google / Microsoft client IDs from Calendar.
+Add redirect URIs and API scopes; then redeploy.
+
+| Name | Value |
+| --- | --- |
+| `GOOGLE_CLIENT_ID` | Same OAuth Web client as Calendar |
+| `GOOGLE_CLIENT_SECRET` | Same as Calendar |
+| `GMAIL_REDIRECT_URI` | Optional; default `https://ex-communicator-app.vercel.app/api/email/gmail/callback` |
+| `MICROSOFT_CLIENT_ID` | Same Azure app as Calendar |
+| `MICROSOFT_CLIENT_SECRET` | Same as Calendar |
+| `MICROSOFT_MAIL_REDIRECT_URI` | Optional; default `https://ex-communicator-app.vercel.app/api/email/outlook/callback` |
+| `CALENDAR_TOKEN_SECRET` | Same AES secret used for calendar tokens |
+
+**Redirect URIs to allow:**
+
+- `https://ex-communicator-app.vercel.app/api/email/gmail/callback`
+- `http://localhost:3000/api/email/gmail/callback`
+- `https://ex-communicator-app.vercel.app/api/email/outlook/callback`
+- `http://localhost:3000/api/email/outlook/callback`
+
+**Privacy:** Imported email is **private** to the connecting user. Co-parent never
+sees mailbox content until the user drafts and sends an in-app Messages thread.
+
+Also run migration `012_email_intake.sql` in Supabase SQL Editor.
+
+**Scope separation:** Calendar OAuth (`Calendars.ReadWrite` / Google `calendar`)
+does not grant mail. Email OAuth (`Mail.Read` / `gmail.readonly`) does not grant
+calendar. Users connect each surface separately.
+

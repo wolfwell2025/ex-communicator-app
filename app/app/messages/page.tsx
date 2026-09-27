@@ -4,7 +4,19 @@ import { ensureHousehold } from "@/lib/households";
 import { listHouseholdMembers, listThreads } from "@/lib/messages";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function MessagesPage() {
+type PageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function one(
+  value: string | string[] | undefined
+): string | undefined {
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
+
+export default async function MessagesPage({ searchParams }: PageProps) {
+  const params = (await searchParams) ?? {};
   const supabase = await createClient();
   const {
     data: { user },
@@ -45,6 +57,13 @@ export default async function MessagesPage() {
 
   const loadError = threadsError && !needsMigration ? threadsError : membersError;
 
+  const draftSubject = one(params.subject) ?? null;
+  const draftBody = one(params.body) ?? null;
+  const openNew =
+    one(params.new) === "1" ||
+    one(params.new) === "true" ||
+    Boolean(draftSubject || draftBody);
+
   return (
     <div className="space-y-4">
       {loadError ? (
@@ -59,6 +78,9 @@ export default async function MessagesPage() {
         initialThreads={threads}
         initialMembers={members}
         needsMigration={needsMigration}
+        draftSubject={draftSubject}
+        draftBody={draftBody}
+        openNewComposer={openNew}
       />
     </div>
   );

@@ -2,6 +2,8 @@ import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 
 const GOOGLE_COOKIE_NAME = "gcal_oauth_state";
 const OUTLOOK_COOKIE_NAME = "ocal_oauth_state";
+const GMAIL_COOKIE_NAME = "gmail_oauth_state";
+const OUTLOOK_MAIL_COOKIE_NAME = "omail_oauth_state";
 const MAX_AGE_SEC = 600;
 
 function signingKey(): string {
@@ -68,4 +70,6 @@ export function verifyOAuthState(
 export {
   GOOGLE_COOKIE_NAME as OAUTH_STATE_COOKIE,
   OUTLOOK_COOKIE_NAME as OUTLOOK_OAUTH_STATE_COOKIE,
+  GMAIL_COOKIE_NAME as GMAIL_OAUTH_STATE_COOKIE,
+  OUTLOOK_MAIL_COOKIE_NAME as OUTLOOK_MAIL_OAUTH_STATE_COOKIE,
 };

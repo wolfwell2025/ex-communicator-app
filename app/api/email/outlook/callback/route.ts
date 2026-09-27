@@ -1,0 +1,89 @@
+import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+import {
+  OUTLOOK_MAIL_OAUTH_STATE_COOKIE,
+  verifyOAuthState,
+} from "@/lib/oauth-state";
+import {
+  exchangeOutlookMailCode,
+  fetchOutlookUserEmail,
+  outlookMailOAuthConfigured,
+  syncOutlookMailConnection,
+  upsertOutlookMailConnection,
+} from "@/lib/outlook-mail";
+import { getSiteUrl } from "@/lib/supabase/env";
+import { createClient } from "@/lib/supabase/server";
+
+export async function GET(request: Request) {
+  const origin = getSiteUrl();
+  const { searchParams } = new URL(request.url);
+  const code = searchParams.get("code");
+  const state = searchParams.get("state");
+  const oauthError = searchParams.get("error");
+
+  const fail = (codeName: string) => {
+    const res = NextResponse.redirect(
+      `${origin}/app/email?outlook_error=${encodeURIComponent(codeName)}`
+    );
+    res.cookies.set(OUTLOOK_MAIL_OAUTH_STATE_COOKIE, "", {
+      path: "/",
+      maxAge: 0,
+    });
+    return res;
+  };
+
+  if (oauthError) return fail(oauthError);
+  if (!code) return fail("missing_code");
+  if (!outlookMailOAuthConfigured()) return fail("not_configured");
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.redirect(
+      `${origin}/login?next=${encodeURIComponent("/app/email")}`
+    );
+  }
+
+  const jar = await cookies();
+  const stateCookie = jar.get(OUTLOOK_MAIL_OAUTH_STATE_COOKIE)?.value;
+  if (!verifyOAuthState(state, stateCookie, user.id)) {
+    return fail("invalid_state");
+  }
+
+  try {
+    const tokens = await exchangeOutlookMailCode(code);
+    const email = await fetchOutlookUserEmail(tokens.access_token);
+    const { connectionId, error } = await upsertOutlookMailConnection({
+      supabase,
+      userId: user.id,
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token ?? null,
+      expiresAt: Date.now() + (tokens.expires_in || 3600) * 1000,
+      scopes: tokens.scope ?? null,
+      email,
+    });
+    if (error || !connectionId) {
+      return fail(error || "upsert_failed");
+    }
+
+    await syncOutlookMailConnection({
+      supabase,
+      userId: user.id,
+      connectionId,
+    });
+
+    const res = NextResponse.redirect(
+      `${origin}/app/email?outlook_connected=1`
+    );
+    res.cookies.set(OUTLOOK_MAIL_OAUTH_STATE_COOKIE, "", {
+      path: "/",
+      maxAge: 0,
+    });
+    return res;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "token_exchange_failed";
+    return fail(msg.slice(0, 80));
+  }
+}

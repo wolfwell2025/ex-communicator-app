@@ -64,6 +64,10 @@ type Props = {
   initialThreads: ThreadListItem[];
   initialMembers: HouseholdMemberProfile[];
   needsMigration: boolean;
+  /** Prefill from Email intake "Draft message from email". */
+  draftSubject?: string | null;
+  draftBody?: string | null;
+  openNewComposer?: boolean;
 };
 
 /** Escalate after this many distinct flagged drafts in one compose session. */
@@ -140,22 +144,26 @@ export function MessagesPanel({
   initialThreads,
   initialMembers,
   needsMigration: initialNeedsMigration,
+  draftSubject = null,
+  draftBody = null,
+  openNewComposer = false,
 }: Props) {
   const [threads, setThreads] = useState<ThreadListItem[]>(initialThreads);
   const [members] = useState<HouseholdMemberProfile[]>(initialMembers);
   const [needsMigration, setNeedsMigration] = useState(initialNeedsMigration);
-  const [selectedId, setSelectedId] = useState<string | "new" | null>(
-    initialThreads[0]?.id ?? (initialNeedsMigration ? null : "new")
-  );
+  const [selectedId, setSelectedId] = useState<string | "new" | null>(() => {
+    if (openNewComposer && !initialNeedsMigration) return "new";
+    return initialThreads[0]?.id ?? (initialNeedsMigration ? null : "new");
+  });
   const [messages, setMessages] = useState<MessageWithSender[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [subject, setSubject] = useState("");
+  const [subject, setSubject] = useState(() => draftSubject?.trim() || "");
   const [toUserIds, setToUserIds] = useState<string[]>(() =>
     initialMembers.filter((m) => m.user_id !== userId).map((m) => m.user_id)
   );
   const [householdTo, setHouseholdTo] = useState(true);
-  const [body, setBody] = useState("");
+  const [body, setBody] = useState(() => draftBody || "");
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [toneCoach, setToneCoach] = useState<ToneCoach | null>(null);

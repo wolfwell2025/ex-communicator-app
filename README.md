@@ -16,6 +16,7 @@ Next.js App Router starter (TypeScript + Tailwind + ESLint) with Supabase Auth w
 | `/auth/confirm` | Email OTP / magic-link confirmation |
 | `/app` | Authenticated shell (requires session) |
 | `/app/messages` | Threaded messaging (subject, To, search) + transcript export |
+| `/app/email` | Private Gmail / Outlook mail intake + draft into Messages |
 | `/app/calendar` | Shared custody calendar (private / propose / accept) + Google / Outlook import/export |
 | `/app/documents` | Parenting team document vault (upload / share / reference) |
 | `/app/expenses` | Shared kids expenses + reimbursement workflow |
@@ -94,8 +95,17 @@ Open Supabase Dashboard → **SQL Editor** for project `pryvielnxaxylcxihgpk`. I
 8. [`supabase/migrations/008_expenses.sql`](supabase/migrations/008_expenses.sql) — `expenses` table with reimbursement statuses (`draft` / `requested` / `accepted` / `declined` / `paid` / `canceled`) and optional receipt `document_id`. See `EXPENSES-SETUP.md`.
 9. [`supabase/migrations/009_profile_fields.sql`](supabase/migrations/009_profile_fields.sql) — profile `phone` + `avatar_path` and private Storage bucket `avatars`. See `PROFILE-SETUP.md`.
 10. [`supabase/migrations/010_parenting_team_roles.sql`](supabase/migrations/010_parenting_team_roles.sql) — expand membership roles; user-facing Parenting team naming (DB tables stay `households`). See `PARENTING-TEAM.md`.
+11. [`supabase/migrations/011_outlook_calendar.sql`](supabase/migrations/011_outlook_calendar.sql) — Outlook calendar private-import / export docs (if not already applied).
+12. [`supabase/migrations/012_email_intake.sql`](supabase/migrations/012_email_intake.sql) — Gmail / Outlook mail connections + private threads/messages. See `EMAIL-INTAKE-SETUP.md`.
 
-Confirm tables exist, then sign in and open `/app`, `/app/calendar`, `/app/messages`, `/app/documents`, `/app/expenses`, and `/app/profile`.
+Confirm tables exist, then sign in and open `/app`, `/app/calendar`, `/app/messages`, `/app/email`, `/app/documents`, `/app/expenses`, and `/app/profile`.
+
+### Email privacy
+
+- Imported Gmail / Outlook threads are **private** to the connecting user (RLS owner-only).
+- Co-parent never sees mailbox content in Email.
+- **Draft message from email** opens Messages with editable draft text only. Nothing auto-sends externally.
+- Mail OAuth is separate from Calendar OAuth (extra redirect URIs + `gmail.readonly` / `Mail.Read`). See `EMAIL-INTAKE-SETUP.md`.
 
 ### Calendar privacy
 

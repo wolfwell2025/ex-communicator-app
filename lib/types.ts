@@ -270,3 +270,74 @@ export type ExpenseWithDocument = Expense & {
   document_title?: string | null;
   document_file_name?: string | null;
 };
+
+export type EmailProvider = "gmail" | "outlook";
+
+export type EmailConnectionStatus =
+  | "disconnected"
+  | "pending"
+  | "connected"
+  | "error";
+
+/**
+ * OAuth mail connection. Imported threads/messages are always private to user_id.
+ * Sharing is only via explicit draft-into-Messages (never auto-share raw email).
+ */
+export type EmailConnection = {
+  id: string;
+  user_id: string;
+  provider: EmailProvider;
+  status: EmailConnectionStatus;
+  sync_enabled: boolean;
+  external_account_email: string | null;
+  scopes: string | null;
+  last_synced_at: string | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type EmailThreadParticipant = {
+  name?: string | null;
+  email: string;
+};
+
+export type EmailThread = {
+  id: string;
+  connection_id: string;
+  user_id: string;
+  provider: EmailProvider;
+  external_thread_id: string;
+  subject: string | null;
+  snippet: string | null;
+  participants: EmailThreadParticipant[];
+  last_message_at: string | null;
+  message_count: number;
+  is_unread: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type EmailMessage = {
+  id: string;
+  thread_id: string;
+  connection_id: string;
+  user_id: string;
+  provider: EmailProvider;
+  external_message_id: string;
+  from_addr: string | null;
+  to_addrs: string[];
+  cc_addrs: string[];
+  subject: string | null;
+  body_text: string | null;
+  snippet: string | null;
+  sent_at: string | null;
+  is_from_me: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type EmailThreadListItem = EmailThread & {
+  account_email: string | null;
+};
+

@@ -102,3 +102,9 @@ offline_access User.Read Calendars.ReadWrite
 
 Auth URL uses `https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize`
 with Graph calendar APIs under `https://graph.microsoft.com/v1.0/`.
+
+## Related: Outlook mail (Email intake)
+
+Mail uses a **separate** OAuth redirect and `Mail.Read` scope. See
+`EMAIL-INTAKE-SETUP.md`. Calendar reconnect does not grant mailbox access.
+

@@ -115,3 +115,9 @@ Migration 007 adds `calendar_suggestions` (message/doc date prompts) and
    and approve write access.
 5. Import still always lands as **private**. Co-parent never sees imports until
    propose → accept.
+
+## Related: Gmail (Email intake)
+
+Gmail intake uses a **separate** OAuth redirect and `gmail.readonly` scope. See
+`EMAIL-INTAKE-SETUP.md`. Calendar reconnect does not grant Gmail access.
+

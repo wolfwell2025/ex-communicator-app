@@ -13,6 +13,13 @@ const modules = [
     icon: "💬",
   },
   {
+    href: "/app/email",
+    title: "Email",
+    body: "Private Gmail / Outlook intake. Draft into parenting-team messages.",
+    live: true,
+    icon: "✉️",
+  },
+  {
     href: "/app/calendar",
     title: "Calendar",
     body: "Shared parenting schedule with private events and propose/accept sharing.",
@@ -72,7 +79,7 @@ export default async function AppHomePage() {
               <span className="font-semibold text-foreground">{household.name}</span>
             </>
           ) : null}
-          . Messages, Calendar, Documents, Expenses, and Profile are live.
+          . Messages, Email, Calendar, Documents, Expenses, and Profile are live.
         </p>
         {householdError ? (
           <p className="mt-3 rounded-2xl border border-amber-200 bg-warning-soft p-4 text-sm text-amber-900">
