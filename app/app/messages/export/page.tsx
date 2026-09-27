@@ -33,7 +33,7 @@ export default async function MessagesExportPage() {
       <div className="space-y-3">
         <h1 className="text-2xl font-semibold tracking-tight">Export</h1>
         <p className="text-sm text-danger">
-          Could not load household
+          Could not load parenting team
           {householdError ? `: ${householdError}` : "."}
         </p>
         <Link href="/app/messages" className="text-sm font-medium text-accent hover:text-accent-hover">
@@ -124,7 +124,7 @@ export default async function MessagesExportPage() {
 
         <div className="relative mt-5 space-y-8">
           {threadsWithMessages.length === 0 ? (
-            <p className="text-sm text-muted">No threads in this household.</p>
+            <p className="text-sm text-muted">No threads in this parenting team.</p>
           ) : (
             threadsWithMessages.map(({ thread, messages }, threadIndex) => {
               const toLabel = thread.participants
@@ -138,7 +138,7 @@ export default async function MessagesExportPage() {
                       {threadIndex + 1}. {thread.subject}
                     </h3>
                     <p className="text-xs text-muted">
-                      To: {toLabel || "Household"}
+                      To: {toLabel || "Parenting team"}
                       <span className="mx-1.5">·</span>
                       {messages.length} message(s)
                     </p>

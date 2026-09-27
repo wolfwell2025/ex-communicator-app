@@ -134,7 +134,7 @@ const HIGH_WARNING =
   "Strong warning: insults or threats can hurt your co-parenting record. Rewrite before you send.";
 
 const ESCALATED_WARNING =
-  "You've drafted multiple hostile messages in this session. Messages here are permanent and court-usable. Tell us what you're trying to accomplish so we can draft a safer message grounded in your household record.";
+  "You've drafted multiple hostile messages in this session. Messages here are permanent and court-usable. Tell us what you're trying to accomplish so we can draft a safer message grounded in your parenting team record.";
 
 function normalize(text: string): string {
   return text
@@ -398,7 +398,7 @@ function systemPrompt(objective?: ToneObjective): string {
   return (
     "You rewrite co-parenting messages to be calm, factual, and court-appropriate. " +
     "Return ONLY the rewritten message text. No quotes, no preamble. " +
-    "You MUST ground the rewrite in the provided household context when present: " +
+    "You MUST ground the rewrite in the provided parenting team context when present: " +
     "cite the last relevant message (quote a short fragment + date), name calendar events, " +
     "shared documents, or call logs when those lists have real items. " +
     "If a context section is empty, do NOT invent fake titles, dates, or summaries. " +
@@ -429,7 +429,7 @@ async function rewriteWithOpenAI(
         { role: "system", content: systemPrompt(objective) },
         {
           role: "user",
-          content: `Household context:\n${contextBlock}\n\nRewrite this co-parenting message:\n\n${text}`,
+          content: `Parenting team context:\n${contextBlock}\n\nRewrite this co-parenting message:\n\n${text}`,
         },
       ],
     }),
@@ -465,7 +465,7 @@ async function rewriteWithAnthropic(
       messages: [
         {
           role: "user",
-          content: `Household context:\n${contextBlock}\n\nRewrite this co-parenting message:\n\n${text}`,
+          content: `Parenting team context:\n${contextBlock}\n\nRewrite this co-parenting message:\n\n${text}`,
         },
       ],
     }),

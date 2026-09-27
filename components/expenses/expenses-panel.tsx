@@ -399,7 +399,7 @@ export function ExpensesPanel({
 
       {solo ? (
         <div className="rounded-2xl border border-amber-200 bg-warning-soft px-5 py-4 text-sm leading-6 text-amber-900">
-          You are the only member of this household right now. You can still log
+          You are the only member of this parenting team right now. You can still log
           expenses. Invite a co-parent from the dashboard to request
           reimbursement and accept or decline requests.
         </div>
@@ -608,7 +608,7 @@ export function ExpensesPanel({
                 className="w-full rounded-2xl border border-border bg-background px-3 py-2.5 text-sm text-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-accent-soft file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-accent"
               />
               <span className="block text-xs text-muted">
-                Saves to Documents as category Expense, shared with household.
+                Saves to Documents as category Expense, shared with parenting team.
               </span>
             </label>
 

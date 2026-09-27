@@ -72,13 +72,13 @@ const KIND_META: Record<
     title: "Reference a message",
     emptyTitle: "No messages in this thread yet",
     emptyBody:
-      "Send or receive a message first. We only generate from real thread content — nothing is invented.",
+      "Send or receive a message first. We only generate from real thread content. Nothing is invented.",
   },
   calendar: {
     title: "Reference a calendar event",
     emptyTitle: "No shared calendar events yet",
     emptyBody:
-      "Only household-shared events appear here. Create an event on Calendar, propose it, and have the co-parent accept — we will not invent fake events.",
+      "Only parenting-team-shared events appear here. Create an event on Calendar, propose it, and have the co-parent accept. We will not invent fake events.",
     addHref: "/app/calendar",
     addLabel: "Open Calendar",
   },
@@ -86,7 +86,7 @@ const KIND_META: Record<
     title: "Reference a document",
     emptyTitle: "No shared documents yet",
     emptyBody:
-      "Only household-shared documents appear here. Upload a file on Documents (shared by default) — we will not invent fake documents.",
+      "Only parenting-team-shared documents appear here. Upload a file on Documents (shared by default). We will not invent fake documents.",
     addHref: "/app/documents",
     addLabel: "Open Documents",
   },
@@ -94,7 +94,7 @@ const KIND_META: Record<
     title: "Reference an expense",
     emptyTitle: "No shared expenses yet",
     emptyBody:
-      "Only requested, accepted, or paid expenses appear here. Add one on Expenses and request reimbursement — we will not invent fake amounts.",
+      "Only requested, accepted, or paid expenses appear here. Add one on Expenses and request reimbursement. We will not invent fake amounts.",
     addHref: "/app/expenses",
     addLabel: "Open Expenses",
   },

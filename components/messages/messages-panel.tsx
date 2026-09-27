@@ -122,7 +122,7 @@ function participantsLabel(
 ): string {
   const others = participants.filter((p) => p.user_id !== userId);
   if (others.length === 0) {
-    return participants.length <= 1 ? "Just you" : "Household";
+    return participants.length <= 1 ? "Just you" : "Parenting team";
   }
   return others.map(memberLabel).join(", ");
 }
@@ -518,7 +518,7 @@ export function MessagesPanel({
         return;
       }
       if (!householdTo && toUserIds.length === 0 && !soloHousehold) {
-        setError("Choose at least one recipient, or select Household.");
+        setError("Choose at least one recipient, or select Parenting team.");
         setSending(false);
         return;
       }
@@ -1005,9 +1005,9 @@ export function MessagesPanel({
                     <div className="rounded-xl border border-border bg-surface px-3.5 py-3 text-sm text-muted">
                       <p>
                         <span className="font-semibold text-foreground">
-                          Household
+                          Parenting team
                         </span>{" "}
-                        — you are the only member so far.
+                        - you are the only member so far.
                       </p>
                       <p className="mt-1 text-xs">
                         Invite a co-parent from the Dashboard so you can choose
@@ -1025,7 +1025,7 @@ export function MessagesPanel({
                             : "border-border bg-background text-foreground hover:border-accent"
                         }`}
                       >
-                        Household
+                        Parenting team
                       </button>
                       {otherMembers.map((m) => {
                         const selected =
@@ -1226,7 +1226,7 @@ export function MessagesPanel({
                         </div>
                         {objectiveLoading ? (
                           <p className="mt-2 text-xs text-muted">
-                            Drafting rewrite from household context…
+                            Drafting rewrite from parenting team context…
                           </p>
                         ) : null}
                       </div>
@@ -1284,7 +1284,7 @@ export function MessagesPanel({
             ) : null}
 
             <p className="mt-3 text-xs leading-5 text-muted">
-              Sent messages are permanent for the household record.
+              Sent messages are permanent for the parenting team record.
               {softBlocked
                 ? " Send is paused until you pick an objective or use a calm rewrite."
                 : " Reference chips open a picker of real shared items only."}

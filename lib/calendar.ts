@@ -25,7 +25,7 @@ export const EVENT_TYPES: CalendarEventType[] = [
 export const VISIBILITY_LABELS: Record<CalendarVisibility, string> = {
   private: "Private (only you)",
   pending: "Proposed (awaiting accept)",
-  shared: "Shared with household",
+  shared: "Shared with parenting team",
 };
 
 const SELECT_COLS =

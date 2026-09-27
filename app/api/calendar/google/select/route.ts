@@ -75,7 +75,7 @@ export async function POST(request: Request) {
   const { household, error: hhErr } = await ensureHousehold(supabase);
   if (hhErr || !household) {
     return NextResponse.json(
-      { error: hhErr || "No household" },
+      { error: hhErr || "No parenting team" },
       { status: 400 }
     );
   }

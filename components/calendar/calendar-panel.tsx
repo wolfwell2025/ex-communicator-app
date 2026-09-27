@@ -605,7 +605,7 @@ export function CalendarPanel({
                   </span>
                 </h2>
                 <p className="text-xs text-muted">
-                  Accept to share with the household, or decline to leave private for the other parent.
+                  Accept to share with the parenting team, or decline to leave private for the other parent.
                 </p>
               </div>
             </div>
@@ -906,7 +906,7 @@ export function CalendarPanel({
                                 disabled={busy}
                                 onClick={() => void onPropose(event.id)}
                               >
-                                Propose to household
+                                Propose to parenting team
                               </button>
                             ) : null}
                             {event.visibility === "pending" ? (
@@ -916,7 +916,7 @@ export function CalendarPanel({
                                   className={primaryBtn}
                                   disabled={busy}
                                   onClick={() => void onAccept(event.id)}
-                                  title="Confirm as shared (solo household or after verbal agreement)"
+                                  title="Confirm as shared (solo parenting team or after verbal agreement)"
                                 >
                                   Confirm shared
                                 </button>
@@ -1143,7 +1143,7 @@ export function CalendarPanel({
                     setForm((f) => ({ ...f, description: e.target.value }))
                   }
                   className="w-full resize-y rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground shadow-[var(--shadow-sm)] focus:border-accent focus:outline-none focus:ring-2 focus:ring-[var(--accent-ring)]"
-                  placeholder="Optional notes for yourself or the household"
+                  placeholder="Optional notes for yourself or the parenting team"
                 />
               </label>
 

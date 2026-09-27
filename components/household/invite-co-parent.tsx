@@ -113,7 +113,7 @@ export function InviteCoParent({ householdId, householdName }: Props) {
           Enter their email to create a join link for{" "}
           <span className="font-semibold text-foreground">{householdName}</span>.
           They sign up or log in with that email, open the link, and join your
-          household. Required for two-account calendar privacy testing.
+          parenting team. Required for two-account calendar privacy testing.
         </p>
       </div>
 

@@ -29,6 +29,6 @@ If the bucket insert failed, create it manually (name `avatars`, public off, 2 M
 3. Open Messages: your name should appear on new sends / To labels after refresh
 4. Optional: **Upload photo** (under 2 MB) → preview updates; **Remove** clears it
 5. Optional: set **Phone** → Save (needs migration 009)
-6. Confirm Email and Household role stay read-only
+6. Confirm Email stays read-only; Parenting team name and Role are editable (needs migration 010 for role save)
 
 No new Vercel env vars.

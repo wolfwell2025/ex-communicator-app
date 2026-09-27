@@ -268,7 +268,7 @@ export function DocumentsPanel({
   async function onDelete(doc: HouseholdDocument) {
     if (
       !window.confirm(
-        `Delete “${doc.title}”? This removes the file from the household vault.`
+        `Delete “${doc.title}”? This removes the file from the parenting team vault.`
       )
     ) {
       return;
@@ -313,7 +313,7 @@ export function DocumentsPanel({
             </span>
           </div>
           <p className="max-w-2xl text-sm leading-6 text-muted">
-            Household{" "}
+            Parenting team{" "}
             <span className="font-semibold text-foreground">{householdName}</span>
             <span className="mx-2 text-border-strong">·</span>
             Shared by default so both parents can reference decrees, school, and
@@ -347,7 +347,7 @@ export function DocumentsPanel({
             Share requests
           </h2>
           <p className="mt-1 text-xs leading-5 text-muted">
-            Co-parent proposed these private files for the household vault.
+            Co-parent proposed these private files for the parenting team vault.
             Accept to make them shared; decline returns them to private for the
             uploader only.
           </p>
@@ -613,7 +613,7 @@ export function DocumentsPanel({
 
       <p className="px-1 text-xs leading-5 text-muted">
         Privacy: <strong className="font-semibold text-foreground">Shared</strong>{" "}
-        is visible to all household members and usable in Reference document.{" "}
+        is visible to all parenting team members and usable in Reference document.{" "}
         <strong className="font-semibold text-foreground">Private</strong> is
         only you until you propose.{" "}
         <strong className="font-semibold text-foreground">Pending</strong> waits
@@ -647,7 +647,7 @@ export function DocumentsPanel({
                   Upload document
                 </h2>
                 <p className="mt-0.5 text-xs leading-5 text-muted">
-                  Defaults to shared with the household. Check private if only
+                  Defaults to shared with the parenting team. Check private if only
                   you should see it for now.
                 </p>
               </div>
@@ -712,7 +712,7 @@ export function DocumentsPanel({
                   onChange={(e) =>
                     setForm((f) => ({ ...f, description: e.target.value }))
                   }
-                  placeholder="Short note for the household record"
+                  placeholder="Short note for the parenting team record"
                   className="w-full resize-y rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground shadow-[var(--shadow-sm)] placeholder:text-muted-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-[var(--accent-ring)]"
                 />
               </label>
@@ -764,7 +764,7 @@ export function DocumentsPanel({
                       ? "Only you can see this until you Propose share and the co-parent accepts."
                       : defaultSharedHint
                         ? "Recommended for decrees and school/medical files: both parents see it immediately."
-                        : "Shared with household members as soon as you upload."}
+                        : "Shared with parenting team members as soon as you upload."}
                   </span>
                 </span>
               </label>

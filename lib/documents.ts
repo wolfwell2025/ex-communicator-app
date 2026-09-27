@@ -26,7 +26,7 @@ export const DOCUMENT_CATEGORIES: DocumentCategory[] = [
 export const DOCUMENT_VISIBILITY_LABELS: Record<DocumentVisibility, string> = {
   private: "Private (only you)",
   pending: "Proposed (awaiting accept)",
-  shared: "Shared with household",
+  shared: "Shared with parenting team",
 };
 
 /** Categories that default to shared on upload (decree vault use-case). */

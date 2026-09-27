@@ -64,14 +64,14 @@ export async function ensureHousehold(
 
   const { data: householdId, error: createError } = await supabase.rpc(
     "create_household",
-    { p_name: options?.name ?? "Our household" }
+    { p_name: options?.name ?? "Our parenting team" }
   );
 
   if (createError || !householdId) {
     return {
       household: null,
       profile,
-      error: createError?.message ?? "Could not create household",
+      error: createError?.message ?? "Could not create parenting team",
     };
   }
 
@@ -85,7 +85,7 @@ export async function ensureHousehold(
     return {
       household: null,
       profile,
-      error: fetchError?.message ?? "Household created but could not be loaded",
+      error: fetchError?.message ?? "Parenting team created but could not be loaded",
     };
   }
 
@@ -140,7 +140,7 @@ export function formatTranscript(
 ): string {
   const lines: string[] = [
     "Ex Communicator export",
-    `Household: ${householdName}`,
+    `Parenting team: ${householdName}`,
     `Exported: ${new Date().toISOString()}`,
     "----------------------------------------",
     "",

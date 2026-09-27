@@ -137,6 +137,110 @@ export async function getOwnHouseholdRole(
   };
 }
 
+
+export const HOUSEHOLD_ROLES: HouseholdRole[] = [
+  "parent",
+  "caregiver",
+  "legal",
+  "kid",
+  "grandparent",
+  "family_member",
+];
+
+export const HOUSEHOLD_ROLE_LABELS: Record<HouseholdRole, string> = {
+  parent: "Parent",
+  caregiver: "Caregiver",
+  legal: "Legal",
+  kid: "Kid",
+  grandparent: "Grandparent",
+  family_member: "Family member",
+};
+
+export function roleLabel(role: HouseholdRole | null | undefined): string {
+  if (!role) return "Not on a parenting team yet";
+  return HOUSEHOLD_ROLE_LABELS[role] ?? role;
+}
+
+export function isHouseholdRole(value: string): value is HouseholdRole {
+  return (HOUSEHOLD_ROLES as string[]).includes(value);
+}
+
+export async function updateOwnHouseholdRole(
+  supabase: SupabaseClient,
+  userId: string,
+  householdId: string,
+  role: HouseholdRole
+): Promise<{ role: HouseholdRole | null; error: string | null }> {
+  if (!isHouseholdRole(role)) {
+    return { role: null, error: "Choose a valid role." };
+  }
+
+  const { data, error } = await supabase
+    .from("household_members")
+    .update({ role })
+    .eq("household_id", householdId)
+    .eq("user_id", userId)
+    .select("role")
+    .maybeSingle();
+
+  if (error) {
+    const needsMigration =
+      /check|constraint|role|household_members|schema cache|Could not find/i.test(
+        error.message
+      );
+    return {
+      role: null,
+      error: needsMigration
+        ? `${error.message} Paste supabase/migrations/010_parenting_team_roles.sql into the Supabase SQL Editor, then try again.`
+        : error.message,
+    };
+  }
+
+  if (!data) {
+    return { role: null, error: "Could not update role. Are you on this parenting team?" };
+  }
+
+  return { role: data.role as HouseholdRole, error: null };
+}
+
+export async function updateHouseholdName(
+  supabase: SupabaseClient,
+  householdId: string,
+  name: string
+): Promise<{ name: string | null; error: string | null }> {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return { name: null, error: "Parenting team name is required." };
+  }
+  if (trimmed.length > 120) {
+    return { name: null, error: "Parenting team name must be 120 characters or fewer." };
+  }
+
+  const { data, error } = await supabase
+    .from("households")
+    .update({ name: trimmed })
+    .eq("id", householdId)
+    .select("name")
+    .maybeSingle();
+
+  if (error) {
+    const needsMigration =
+      /policy|permission|RLS|schema cache|Could not find/i.test(error.message);
+    return {
+      name: null,
+      error: needsMigration
+        ? `${error.message} Paste supabase/migrations/010_parenting_team_roles.sql into the Supabase SQL Editor if name edits are blocked.`
+        : error.message,
+    };
+  }
+
+  if (!data) {
+    return { name: null, error: "Could not update parenting team name." };
+  }
+
+  return { name: data.name as string, error: null };
+}
+
 export async function updateOwnProfile(
   supabase: SupabaseClient,
   userId: string,

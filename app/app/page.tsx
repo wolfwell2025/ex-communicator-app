@@ -36,7 +36,7 @@ const modules = [
   {
     href: "/app/profile",
     title: "Profile",
-    body: "Display name, photo, phone, and household role.",
+    body: "Display name, photo, phone, parenting team name, and role.",
     live: true,
     icon: "👤",
   },
@@ -76,7 +76,7 @@ export default async function AppHomePage() {
         </p>
         {householdError ? (
           <p className="mt-3 rounded-2xl border border-amber-200 bg-warning-soft p-4 text-sm text-amber-900">
-            Household setup needs the SQL migration. Paste{" "}
+            Parenting team setup needs the SQL migration. Paste{" "}
             <code className="rounded-md border border-amber-200 bg-white px-1.5 py-0.5 text-xs">
               supabase/migrations/001_households_messages.sql
             </code>{" "}

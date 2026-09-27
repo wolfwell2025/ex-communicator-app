@@ -103,7 +103,7 @@ export function AcceptInvitePanel({ token, userEmail }: Props) {
           You joined {invite.household_name}
         </h1>
         <p className="text-sm leading-6 text-muted">
-          You and your co-parent now share this household. Open Calendar to test
+          You and your co-parent now share this parenting team. Open Calendar to test
           private events and propose/accept sharing.
         </p>
         <div className="flex flex-wrap gap-2">
@@ -134,7 +134,7 @@ export function AcceptInvitePanel({ token, userEmail }: Props) {
   return (
     <div className="space-y-4 rounded-3xl border border-border bg-card p-6 shadow-[var(--shadow-lg)]">
       <p className="text-xs font-semibold uppercase tracking-[0.12em] text-accent">
-        Household invite
+        Parenting team invite
       </p>
       <h1 className="text-3xl font-semibold tracking-tight text-foreground">
         Join {invite.household_name}
@@ -166,7 +166,7 @@ export function AcceptInvitePanel({ token, userEmail }: Props) {
       ) : (
         <p className="text-sm text-muted">
           Signed in as <span className="font-semibold text-foreground">{userEmail}</span>.
-          Accept to join the household.
+          Accept to join the parenting team.
         </p>
       )}
 

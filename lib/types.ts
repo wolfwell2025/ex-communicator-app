@@ -1,4 +1,10 @@
-export type HouseholdRole = "parent" | "other";
+export type HouseholdRole =
+  | "parent"
+  | "caregiver"
+  | "legal"
+  | "kid"
+  | "grandparent"
+  | "family_member";
 
 export type Profile = {
   id: string;

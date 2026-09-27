@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   const { household, error: hhErr } = await ensureHousehold(supabase);
   if (hhErr || !household) {
     return NextResponse.json(
-      { error: hhErr || "No household" },
+      { error: hhErr || "No parenting team" },
       { status: 400 }
     );
   }
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       imported: result.imported,
       privacyNote:
-        "Synced events stay private until you propose them to the household.",
+        "Synced events stay private until you propose them to the parenting team.",
     });
   }
 
@@ -60,6 +60,6 @@ export async function POST(request: Request) {
     imported: result.imported,
     errors: result.errors,
     privacyNote:
-      "Synced events stay private until you propose them to the household.",
+      "Synced events stay private until you propose them to the parenting team.",
   });
 }

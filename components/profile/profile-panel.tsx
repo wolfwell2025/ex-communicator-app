@@ -5,8 +5,13 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   getAvatarSignedUrl,
+  HOUSEHOLD_ROLES,
+  HOUSEHOLD_ROLE_LABELS,
   initialsFromProfile,
   removeAvatar,
+  roleLabel,
+  updateHouseholdName,
+  updateOwnHouseholdRole,
   updateOwnProfile,
   uploadAvatar,
 } from "@/lib/profile";
@@ -21,15 +26,10 @@ const secondaryBtn =
 const primaryBtn =
   "inline-flex items-center justify-center rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white shadow-[var(--shadow-sm)] transition-colors hover:bg-accent-hover disabled:opacity-50";
 
-function roleLabel(role: HouseholdRole | null): string {
-  if (role === "parent") return "Parent";
-  if (role === "other") return "Other";
-  return "Not in a household yet";
-}
-
 type Props = {
   userId: string;
   email: string;
+  householdId: string | null;
   householdName: string | null;
   householdRole: HouseholdRole | null;
   initialProfile: Profile;
@@ -39,8 +39,9 @@ type Props = {
 export function ProfilePanel({
   userId,
   email,
-  householdName,
-  householdRole,
+  householdId,
+  householdName: initialHouseholdName,
+  householdRole: initialHouseholdRole,
   initialProfile,
   initialAvatarUrl,
 }: Props) {
@@ -51,6 +52,16 @@ export function ProfilePanel({
     initialProfile.display_name ?? ""
   );
   const [phone, setPhone] = useState(initialProfile.phone ?? "");
+  const [teamName, setTeamName] = useState(initialHouseholdName ?? "");
+  const [savedTeamName, setSavedTeamName] = useState(
+    initialHouseholdName ?? ""
+  );
+  const [role, setRole] = useState<HouseholdRole | "">(
+    initialHouseholdRole ?? ""
+  );
+  const [savedRole, setSavedRole] = useState<HouseholdRole | "">(
+    initialHouseholdRole ?? ""
+  );
   const [avatarPath, setAvatarPath] = useState(
     initialProfile.avatar_path ?? null
   );
@@ -76,15 +87,17 @@ export function ProfilePanel({
     setMessage(null);
 
     const supabase = createClient();
+    const notes: string[] = [];
+    let failed: string | null = null;
+
     const { profile, error: updateError } = await updateOwnProfile(
       supabase,
       userId,
       { display_name: displayName, phone: phone || null }
     );
 
-    setSaving(false);
-
     if (!profile) {
+      setSaving(false);
       setError(updateError ?? "Could not save profile.");
       return;
     }
@@ -93,11 +106,52 @@ export function ProfilePanel({
     setPhone(profile.phone ?? "");
     setAvatarPath(profile.avatar_path ?? null);
     if (updateError) {
-      setError(updateError);
-      setMessage("Display name saved.");
+      notes.push(updateError);
+    } else {
+      notes.push("Profile saved.");
+    }
+
+    if (householdId) {
+      if (teamName.trim() && teamName.trim() !== savedTeamName.trim()) {
+        const { name, error: nameError } = await updateHouseholdName(
+          supabase,
+          householdId,
+          teamName
+        );
+        if (nameError || !name) {
+          failed = nameError ?? "Could not update parenting team name.";
+        } else {
+          setTeamName(name);
+          setSavedTeamName(name);
+          notes.push("Parenting team name updated.");
+        }
+      }
+
+      if (role && role !== savedRole) {
+        const { role: nextRole, error: roleError } = await updateOwnHouseholdRole(
+          supabase,
+          userId,
+          householdId,
+          role
+        );
+        if (roleError || !nextRole) {
+          failed = roleError ?? "Could not update role.";
+        } else {
+          setRole(nextRole);
+          setSavedRole(nextRole);
+          notes.push(`Role set to ${roleLabel(nextRole)}.`);
+        }
+      }
+    }
+
+    setSaving(false);
+    if (failed) {
+      setError(failed);
+      setMessage(notes.join(" "));
     } else {
       setMessage(
-        "Profile saved. Your display name will show in messages and calendar labels."
+        notes.join(" ") ||
+          "Profile saved. Your display name will show in messages and calendar labels."
       );
     }
     router.refresh();
@@ -168,7 +222,7 @@ export function ProfilePanel({
           Profile
         </h1>
         <p className="max-w-2xl text-lg leading-8 text-muted">
-          Update how you appear to your co-parent. Email stays tied to your
+          Update how you appear to your parenting team. Email stays tied to your
           sign-in account.
         </p>
       </div>
@@ -237,7 +291,7 @@ export function ProfilePanel({
               maxLength={80}
               required
               autoComplete="name"
-              placeholder="How your co-parent sees you"
+              placeholder="How your parenting team sees you"
             />
           </label>
 
@@ -270,28 +324,55 @@ export function ProfilePanel({
 
           <label className="block space-y-2">
             <span className="text-sm font-semibold text-foreground">
-              Household
+              Parenting team name
             </span>
-            <input
-              className={`${fieldClass} cursor-not-allowed bg-surface text-muted`}
-              value={householdName ?? "No household yet"}
-              readOnly
-              tabIndex={-1}
-              aria-readonly="true"
-            />
+            {householdId ? (
+              <input
+                className={fieldClass}
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                maxLength={120}
+                required
+                placeholder="Our parenting team"
+              />
+            ) : (
+              <input
+                className={`${fieldClass} cursor-not-allowed bg-surface text-muted`}
+                value="No parenting team yet"
+                readOnly
+                tabIndex={-1}
+                aria-readonly="true"
+              />
+            )}
           </label>
 
           <label className="block space-y-2">
-            <span className="text-sm font-semibold text-foreground">
-              Household role
-            </span>
-            <input
-              className={`${fieldClass} cursor-not-allowed bg-surface text-muted`}
-              value={roleLabel(householdRole)}
-              readOnly
-              tabIndex={-1}
-              aria-readonly="true"
-            />
+            <span className="text-sm font-semibold text-foreground">Role</span>
+            {householdId ? (
+              <select
+                className={fieldClass}
+                value={role}
+                onChange={(e) => setRole(e.target.value as HouseholdRole)}
+                required
+              >
+                <option value="" disabled>
+                  Select a role
+                </option>
+                {HOUSEHOLD_ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {HOUSEHOLD_ROLE_LABELS[r]}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                className={`${fieldClass} cursor-not-allowed bg-surface text-muted`}
+                value={roleLabel(null)}
+                readOnly
+                tabIndex={-1}
+                aria-readonly="true"
+              />
+            )}
           </label>
         </div>
 

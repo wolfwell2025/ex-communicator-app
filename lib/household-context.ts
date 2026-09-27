@@ -100,14 +100,14 @@ export function formatContextForPrompt(ctx: HouseholdToneContext): string {
 
   const msgs = ctx.recentMessages ?? [];
   if (msgs.length > 0) {
-    lines.push("Recent household messages (oldest → newest):");
+    lines.push("Recent parenting team messages (oldest to newest):");
     for (const m of msgs.slice(-8)) {
       lines.push(
         `- [${formatWhen(m.createdAt)}] ${m.senderLabel}${m.mine ? " (me)" : ""}: ${clip(m.body, 220)}`
       );
     }
   } else {
-    lines.push("Recent household messages: (none yet)");
+    lines.push("Recent parenting team messages: (none yet)");
   }
 
   const events = ctx.calendarEvents ?? [];

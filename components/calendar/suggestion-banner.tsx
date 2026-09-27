@@ -53,7 +53,7 @@ export function SuggestionBanner({
         } else if (action === "accept") {
           setNote(
             visibility === "pending"
-              ? "Proposed to household. Co-parent must accept before it is shared."
+              ? "Proposed to parenting team. Co-parent must accept before it is shared."
               : "Added as a private event."
           );
         }

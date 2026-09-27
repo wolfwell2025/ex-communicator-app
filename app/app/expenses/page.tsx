@@ -24,7 +24,7 @@ export default async function ExpensesPage() {
           Expenses
         </h1>
         <p className="rounded-2xl border border-red-200 bg-danger-soft p-5 text-sm text-danger">
-          Could not load or create your household
+          Could not load or create your parenting team
           {householdError ? `: ${householdError}` : "."} If this is the first
           run, paste{" "}
           <code className="rounded-md border border-red-200 bg-white px-1.5 py-0.5 text-xs text-foreground">

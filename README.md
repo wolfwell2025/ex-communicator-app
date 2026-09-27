@@ -17,9 +17,9 @@ Next.js App Router starter (TypeScript + Tailwind + ESLint) with Supabase Auth w
 | `/app` | Authenticated shell (requires session) |
 | `/app/messages` | Threaded messaging (subject, To, search) + transcript export |
 | `/app/calendar` | Shared custody calendar (private / propose / accept) + Google import/export |
-| `/app/documents` | Household document vault (upload / share / reference) |
+| `/app/documents` | Parenting team document vault (upload / share / reference) |
 | `/app/expenses` | Shared kids expenses + reimbursement workflow |
-| `/app/invite/[token]` | Accept co-parent household invite |
+| `/app/invite/[token]` | Accept co-parent parenting team invite |
 | `/app/messages/export` | Print-friendly transcript (watermarked) |
 
 ## Local development
@@ -88,25 +88,26 @@ Open Supabase Dashboard → **SQL Editor** for project `pryvielnxaxylcxihgpk`. I
 3. [`supabase/migrations/003_household_invites.sql`](supabase/migrations/003_household_invites.sql) — co-parent email invites (`create_household_invite` / `accept_household_invite`).
 4. [`supabase/migrations/004_calendar_oauth_tokens.sql`](supabase/migrations/004_calendar_oauth_tokens.sql) — multi-calendar OAuth columns + imported-events-must-insert-private trigger.
 5. [`supabase/migrations/005_documents.sql`](supabase/migrations/005_documents.sql) — `documents` table + private Storage bucket `documents` with RLS.
-6. [`supabase/migrations/006_message_threads.sql`](supabase/migrations/006_message_threads.sql) — message threads (subjects, recipients, search). Migrates existing flat messages into a legacy "Household messages" thread.
+6. [`supabase/migrations/006_message_threads.sql`](supabase/migrations/006_message_threads.sql) — message threads (subjects, recipients, search). Migrates existing flat messages into a legacy thread (DB subject may still say Household messages).
 7. [`supabase/migrations/007_calendar_suggestions_and_export.sql`](supabase/migrations/007_calendar_suggestions_and_export.sql) — `calendar_suggestions` (message/doc date prompts) + `export_enabled` on Google connections. After OAuth scope upgrade, use **Reconnect Google for two-way sync** if Export stays disabled.
 8. [`supabase/migrations/008_expenses.sql`](supabase/migrations/008_expenses.sql) — `expenses` table with reimbursement statuses (`draft` / `requested` / `accepted` / `declined` / `paid` / `canceled`) and optional receipt `document_id`. See `EXPENSES-SETUP.md`.
 9. [`supabase/migrations/009_profile_fields.sql`](supabase/migrations/009_profile_fields.sql) — profile `phone` + `avatar_path` and private Storage bucket `avatars`. See `PROFILE-SETUP.md`.
+10. [`supabase/migrations/010_parenting_team_roles.sql`](supabase/migrations/010_parenting_team_roles.sql) — expand membership roles; user-facing Parenting team naming (DB tables stay `households`). See `PARENTING-TEAM.md`.
 
 Confirm tables exist, then sign in and open `/app`, `/app/calendar`, `/app/messages`, `/app/documents`, `/app/expenses`, and `/app/profile`.
 
 ### Calendar privacy
 
 - **private** — only the creator can see the event (co-parent sees nothing).
-- **pending** — proposed to household; appears in Share requests for the co-parent, not on the shared month grid until accepted.
-- **shared** — visible to all household members; Reference calendar chip uses shared events only.
+- **pending** - proposed to parenting team; appears in Share requests for the co-parent, not on the shared month grid until accepted.
+- **shared** - visible to all parenting team members; Reference calendar chip uses shared events only.
 - **Google sync** — connect multiple calendars (personal / work / family). Imports are **always private**. Export is opt-in per calendar (`export_enabled`). Connecting never auto-shares. Share only via Propose → Accept. See `GOOGLE-SETUP.md`.
 
 ### Documents privacy
 
-- **shared** (default) — visible to all household members; Reference document chip uses shared docs only. Best for decrees, school, and medical files both parents need.
+- **shared** (default) - visible to all parenting team members; Reference document chip uses shared docs only. Best for decrees, school, and medical files both parents need.
 - **private** — only the uploader (optional checkbox at upload). Co-parent sees nothing until Propose → Accept.
-- **pending** — proposed to household; appears in Documents Share requests for the co-parent.
+- **pending** - proposed to parenting team; appears in Documents Share requests for the co-parent.
 - **Storage** — private bucket `documents`; paths `{household_id}/{user_id}/…`; download via short-lived signed URLs. Migration 005 creates the bucket + Storage RLS.
 
 ### Expenses
@@ -120,13 +121,13 @@ Confirm tables exist, then sign in and open `/app`, `/app/calendar`, `/app/messa
 ### Profile
 
 - `/app/profile` (nav **Profile**): edit display name, optional phone and photo.
-- Email and household role are read-only (sign-in email; membership role from `household_members`).
+- Email is read-only. Parenting team name and membership role are editable on Profile (roles: parent, caregiver, legal, kid, grandparent, family_member). See `PARENTING-TEAM.md` and migration `010`.
 - Display name feeds message To labels and sender names after save/refresh.
 - See [`PROFILE-SETUP.md`](PROFILE-SETUP.md).
 
 ### Invite co-parent
 
-On Dashboard or Calendar, use **Invite co-parent**: enter their email → Copy link → they sign up/log in with that **same email** → open `/app/invite/[token]` → Accept. They join your household.
+On Dashboard or Calendar, use **Invite co-parent**: enter their email → Copy link → they sign up/log in with that **same email** → open `/app/invite/[token]` → Accept. They join your parenting team.
 
 ## Google Calendar + Places
 
@@ -135,7 +136,7 @@ Follow [`GOOGLE-SETUP.md`](GOOGLE-SETUP.md) for OAuth credentials, Maps key, env
 ### Messaging threads
 
 - **Subject** — each conversation has an OFW-style subject line.
-- **To** — multi-select household members (or Household for everyone). Solo households default to Household until a co-parent is invited.
+- **To** - multi-select parenting team members (or Parenting team for everyone). Solo teams default to Parenting team until a co-parent is invited.
 - **Search** — filters the thread list by subject, participants, and last-message preview.
 - Tone coaching, Reference pickers, Download transcript, and Print/PDF still work on the open thread.
 

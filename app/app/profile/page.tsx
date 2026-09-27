@@ -72,6 +72,7 @@ export default async function ProfilePage() {
       <ProfilePanel
         userId={user.id}
         email={user.email ?? safeProfile.email ?? ""}
+        householdId={household?.id ?? null}
         householdName={household?.name ?? null}
         householdRole={householdRole}
         initialProfile={safeProfile}
