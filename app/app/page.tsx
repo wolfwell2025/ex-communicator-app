@@ -33,6 +33,13 @@ const modules = [
     live: true,
     icon: "💳",
   },
+  {
+    href: "/app/profile",
+    title: "Profile",
+    body: "Display name, photo, phone, and household role.",
+    live: true,
+    icon: "👤",
+  },
 ];
 
 export default async function AppHomePage() {
@@ -65,7 +72,7 @@ export default async function AppHomePage() {
               <span className="font-semibold text-foreground">{household.name}</span>
             </>
           ) : null}
-          . Messages, Calendar, Documents, and Expenses are live.
+          . Messages, Calendar, Documents, Expenses, and Profile are live.
         </p>
         {householdError ? (
           <p className="mt-3 rounded-2xl border border-amber-200 bg-warning-soft p-4 text-sm text-amber-900">

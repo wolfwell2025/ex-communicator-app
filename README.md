@@ -91,8 +91,9 @@ Open Supabase Dashboard → **SQL Editor** for project `pryvielnxaxylcxihgpk`. I
 6. [`supabase/migrations/006_message_threads.sql`](supabase/migrations/006_message_threads.sql) — message threads (subjects, recipients, search). Migrates existing flat messages into a legacy "Household messages" thread.
 7. [`supabase/migrations/007_calendar_suggestions_and_export.sql`](supabase/migrations/007_calendar_suggestions_and_export.sql) — `calendar_suggestions` (message/doc date prompts) + `export_enabled` on Google connections. After OAuth scope upgrade, use **Reconnect Google for two-way sync** if Export stays disabled.
 8. [`supabase/migrations/008_expenses.sql`](supabase/migrations/008_expenses.sql) — `expenses` table with reimbursement statuses (`draft` / `requested` / `accepted` / `declined` / `paid` / `canceled`) and optional receipt `document_id`. See `EXPENSES-SETUP.md`.
+9. [`supabase/migrations/009_profile_fields.sql`](supabase/migrations/009_profile_fields.sql) — profile `phone` + `avatar_path` and private Storage bucket `avatars`. See `PROFILE-SETUP.md`.
 
-Confirm tables exist, then sign in and open `/app`, `/app/calendar`, `/app/messages`, `/app/documents`, and `/app/expenses`.
+Confirm tables exist, then sign in and open `/app`, `/app/calendar`, `/app/messages`, `/app/documents`, `/app/expenses`, and `/app/profile`.
 
 ### Calendar privacy
 
@@ -115,6 +116,13 @@ Confirm tables exist, then sign in and open `/app`, `/app/calendar`, `/app/messa
 - Optional receipt: upload into Documents (`category = expense`, shared) or link an existing shared expense/medical document.
 - Reference expense chip in Messages uses requested / accepted / paid rows only.
 - See [`EXPENSES-SETUP.md`](EXPENSES-SETUP.md).
+
+### Profile
+
+- `/app/profile` (nav **Profile**): edit display name, optional phone and photo.
+- Email and household role are read-only (sign-in email; membership role from `household_members`).
+- Display name feeds message To labels and sender names after save/refresh.
+- See [`PROFILE-SETUP.md`](PROFILE-SETUP.md).
 
 ### Invite co-parent
 

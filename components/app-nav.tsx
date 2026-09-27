@@ -9,6 +9,7 @@ const links = [
   { href: "/app/calendar", label: "Calendar" },
   { href: "/app/documents", label: "Documents" },
   { href: "/app/expenses", label: "Expenses" },
+  { href: "/app/profile", label: "Profile" },
 ];
 
 export function AppNav() {
