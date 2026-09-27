@@ -125,3 +125,16 @@ Also run migration `012_email_intake.sql` in Supabase SQL Editor.
 does not grant mail. Email OAuth (`Mail.Read` / `gmail.readonly`) does not grant
 calendar. Users connect each surface separately.
 
+
+## Parenting team invite email (Resend)
+
+See **INVITE-EMAIL-SETUP.md**. Add these server-only vars for Production (and
+Preview if you want invite email there), then redeploy:
+
+| Name | Value |
+| --- | --- |
+| `RESEND_API_KEY` | Resend API key (`sending_access` is enough) |
+| `RESEND_FROM_EMAIL` | Optional; default `Ex Communicator <onboarding@resend.dev>`. After domain verify: `Ex Communicator <invites@yourdomain.com>` |
+
+Never expose `RESEND_API_KEY` as `NEXT_PUBLIC_*`. No database migration required.
+Accept links still use `NEXT_PUBLIC_SITE_URL`.

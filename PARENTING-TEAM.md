@@ -24,3 +24,7 @@ Stored on `household_members.role` (snake_case). Display labels:
 Migration `010_parenting_team_roles.sql` expands the check constraint from `parent|other`, maps existing `other` → `caregiver`, and allows members to update the parenting team name and their own role.
 
 Paste that file in the Supabase SQL Editor after `001` (and ideally after `009`).
+
+## Invite email
+
+Create invite emails the accept link via Resend (`POST /api/invites/send`). See `INVITE-EMAIL-SETUP.md`. Copy link remains the manual fallback.

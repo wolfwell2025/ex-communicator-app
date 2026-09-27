@@ -57,6 +57,11 @@ Server-only placeholder (do not invent or commit a real value):
 
 - `SUPABASE_SERVICE_ROLE_KEY`
 
+Parenting team invite email (Resend; server-only — see `INVITE-EMAIL-SETUP.md`):
+
+- `RESEND_API_KEY`
+- `RESEND_FROM_EMAIL` (optional; defaults to `Ex Communicator <onboarding@resend.dev>`)
+
 Never commit `.env.local` or real secrets. `.env*` is gitignored except the `*.example` templates.
 
 ## Supabase Auth URL configuration
@@ -138,7 +143,7 @@ Confirm tables exist, then sign in and open `/app`, `/app/calendar`, `/app/messa
 
 ### Invite co-parent
 
-On Dashboard or Calendar, use **Invite co-parent**: enter their email → Copy link → they sign up/log in with that **same email** → open `/app/invite/[token]` → Accept. They join your parenting team.
+On Dashboard or Calendar, use **Invite co-parent**: enter their email → the app emails them an accept link (Resend; see `INVITE-EMAIL-SETUP.md`) → they sign up/log in with that **same email** → open `/app/invite/[token]` → Accept. They join your parenting team. **Copy link** remains available if email send fails or they need the URL again.
 
 ## Google Calendar + Places
 

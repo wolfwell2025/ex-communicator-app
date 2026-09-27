@@ -22,6 +22,46 @@ const secondaryBtn =
 const primaryBtn =
   "inline-flex items-center justify-center rounded-xl bg-accent px-3.5 py-2 text-sm font-semibold text-white shadow-[var(--shadow-sm)] transition-colors hover:bg-accent-hover disabled:opacity-50";
 
+async function requestInviteEmail(inviteId: string): Promise<{
+  emailed: boolean;
+  error: string | null;
+  acceptUrl: string | null;
+}> {
+  try {
+    const res = await fetch("/api/invites/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inviteId }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      emailed?: boolean;
+      error?: string;
+      acceptUrl?: string;
+    };
+    if (!res.ok || !data.emailed) {
+      return {
+        emailed: false,
+        error:
+          data.error ??
+          `Could not send invite email (HTTP ${res.status}). Use Copy link to send it manually.`,
+        acceptUrl: data.acceptUrl ?? null,
+      };
+    }
+    return {
+      emailed: true,
+      error: null,
+      acceptUrl: data.acceptUrl ?? null,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Network error";
+    return {
+      emailed: false,
+      error: `Could not send invite email: ${msg}. Use Copy link to send it manually.`,
+      acceptUrl: null,
+    };
+  }
+}
+
 export function InviteCoParent({ householdId, householdName }: Props) {
   const supabase = useMemo(() => createClient(), []);
   const [email, setEmail] = useState("");
@@ -30,6 +70,7 @@ export function InviteCoParent({ householdId, householdName }: Props) {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [emailingId, setEmailingId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -70,9 +111,19 @@ export function InviteCoParent({ householdId, householdName }: Props) {
     }
 
     setEmail("");
-    setMessage(
-      `Invite created for ${invite.email}. Copy the link and send it to them. They must sign up or log in with that same email, then open the link to join ${householdName}.`
-    );
+
+    const send = await requestInviteEmail(invite.id);
+    if (send.emailed) {
+      setMessage(
+        `Invite emailed to ${invite.email}. They must sign up or log in with that same email, then open the link to join ${householdName}. Copy link remains available below if they need it again.`
+      );
+    } else {
+      setError(send.error);
+      setMessage(
+        `Invite created for ${invite.email}, but the email could not be sent. Use Copy link below and send it yourself. They must sign up or log in with that same email, then open the link to join ${householdName}.`
+      );
+    }
+
     setBusy(false);
     await refresh();
   }
@@ -86,6 +137,23 @@ export function InviteCoParent({ householdId, householdName }: Props) {
     } catch {
       setError(`Copy failed. Link: ${url}`);
     }
+  }
+
+  async function onEmailAgain(invite: HouseholdInvite) {
+    if (busy || emailingId) return;
+    setEmailingId(invite.id);
+    setError(null);
+    setMessage(null);
+    const send = await requestInviteEmail(invite.id);
+    if (send.emailed) {
+      setMessage(`Invite email sent again to ${invite.email}.`);
+    } else {
+      setError(send.error);
+      setMessage(
+        `Email failed for ${invite.email}. Use Copy link to send the invite manually.`
+      );
+    }
+    setEmailingId(null);
   }
 
   async function onRevoke(inviteId: string) {
@@ -110,10 +178,11 @@ export function InviteCoParent({ householdId, householdName }: Props) {
           Invite co-parent
         </h2>
         <p className="text-sm leading-6 text-muted">
-          Enter their email to create a join link for{" "}
+          Enter their email to invite them to{" "}
           <span className="font-semibold text-foreground">{householdName}</span>.
-          They sign up or log in with that email, open the link, and join your
-          parenting team. Required for two-account calendar privacy testing.
+          We email them an accept link. They sign up or log in with that email,
+          open the link, and join your parenting team. Copy link stays available
+          as a backup. Required for two-account calendar privacy testing.
         </p>
       </div>
 
@@ -149,7 +218,7 @@ export function InviteCoParent({ householdId, householdName }: Props) {
           />
         </label>
         <button type="submit" className={primaryBtn} disabled={busy}>
-          {busy ? "Creating…" : "Create invite"}
+          {busy ? "Sending…" : "Create invite"}
         </button>
       </form>
 
@@ -187,6 +256,14 @@ export function InviteCoParent({ householdId, householdName }: Props) {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      className={secondaryBtn}
+                      disabled={busy || emailingId === invite.id}
+                      onClick={() => void onEmailAgain(invite)}
+                    >
+                      {emailingId === invite.id ? "Emailing…" : "Email invite"}
+                    </button>
                     <button
                       type="button"
                       className={secondaryBtn}
