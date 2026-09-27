@@ -3,7 +3,12 @@
  * CRITICAL: only cite fields present on the selected payload — never invent facts.
  */
 
-export type ReferenceKind = "message" | "calendar" | "document" | "call";
+export type ReferenceKind =
+  | "message"
+  | "calendar"
+  | "document"
+  | "expense"
+  | "call";
 
 export type SelectedMessageRecord = {
   kind: "message";
@@ -33,6 +38,18 @@ export type SelectedDocumentRecord = {
   snippet?: string | null;
 };
 
+export type SelectedExpenseRecord = {
+  kind: "expense";
+  id: string;
+  title: string;
+  categoryLabel?: string | null;
+  statusLabel?: string | null;
+  amountLabel?: string | null;
+  shareLabel?: string | null;
+  incurredOn?: string | null;
+  status?: string | null;
+};
+
 export type SelectedCallRecord = {
   kind: "call";
   id: string;
@@ -45,6 +62,7 @@ export type SelectedReferenceRecord =
   | SelectedMessageRecord
   | SelectedCalendarRecord
   | SelectedDocumentRecord
+  | SelectedExpenseRecord
   | SelectedCallRecord;
 
 export type FactLine = { label: string; value: string };
@@ -131,6 +149,27 @@ export function factsFromRecord(record: SelectedReferenceRecord): FactLine[] {
       }
       break;
     }
+    case "expense": {
+      if (record.title?.trim()) {
+        facts.push({ label: "Title", value: record.title.trim() });
+      }
+      if (record.categoryLabel?.trim()) {
+        facts.push({ label: "Category", value: record.categoryLabel.trim() });
+      }
+      if (record.statusLabel?.trim()) {
+        facts.push({ label: "Status", value: record.statusLabel.trim() });
+      }
+      if (record.amountLabel?.trim()) {
+        facts.push({ label: "Total", value: record.amountLabel.trim() });
+      }
+      if (record.shareLabel?.trim()) {
+        facts.push({ label: "Share owed", value: record.shareLabel.trim() });
+      }
+      if (record.incurredOn?.trim()) {
+        facts.push({ label: "Incurred", value: record.incurredOn.trim() });
+      }
+      break;
+    }
     case "call": {
       const when = formatWhen(record.occurredAt);
       if (when) facts.push({ label: "Date", value: when });
@@ -202,6 +241,21 @@ export function heuristicReferenceMessage(
       if (type) regarding += ` (${type})`;
       const amountBit = amount ? ` The recorded amount is ${amount}.` : "";
       return `${regarding}:${amountBit} Can you confirm the details and how you'd like to handle next steps?`;
+    }
+    case "expense": {
+      const title = record.title?.trim();
+      const share = record.shareLabel?.trim();
+      const total = record.amountLabel?.trim();
+      const status = record.statusLabel?.trim();
+      let regarding = "Regarding the shared expense";
+      if (title) regarding = `Regarding the expense "${title}"`;
+      const bits = [
+        share ? `share owed ${share}` : null,
+        total ? `total ${total}` : null,
+        status ? `status ${status}` : null,
+      ].filter(Boolean);
+      if (bits.length) regarding += ` (${bits.join(", ")})`;
+      return `${regarding}: Can we confirm the amount and when reimbursement will be settled so the kids' costs stay clear?`;
     }
     case "call": {
       const when = formatWhen(record.occurredAt);
@@ -317,6 +371,7 @@ export function parseSelectedRecord(
     kind !== "message" &&
     kind !== "calendar" &&
     kind !== "document" &&
+    kind !== "expense" &&
     kind !== "call"
   ) {
     return null;
@@ -380,6 +435,36 @@ export function parseSelectedRecord(
         snippet: isNonEmptyString(r.snippet)
           ? r.snippet.trim().slice(0, 500)
           : null,
+      };
+    }
+    case "expense": {
+      if (
+        !isNonEmptyString(r.title) &&
+        !isNonEmptyString(r.amountLabel) &&
+        !isNonEmptyString(r.shareLabel)
+      ) {
+        return null;
+      }
+      return {
+        kind: "expense",
+        id: id || "expense",
+        title: isNonEmptyString(r.title) ? r.title.trim().slice(0, 300) : "",
+        categoryLabel: isNonEmptyString(r.categoryLabel)
+          ? r.categoryLabel.trim().slice(0, 100)
+          : null,
+        statusLabel: isNonEmptyString(r.statusLabel)
+          ? r.statusLabel.trim().slice(0, 100)
+          : null,
+        amountLabel: isNonEmptyString(r.amountLabel)
+          ? r.amountLabel.trim().slice(0, 40)
+          : null,
+        shareLabel: isNonEmptyString(r.shareLabel)
+          ? r.shareLabel.trim().slice(0, 40)
+          : null,
+        incurredOn: isNonEmptyString(r.incurredOn)
+          ? r.incurredOn.trim().slice(0, 40)
+          : null,
+        status: isNonEmptyString(r.status) ? r.status.trim().slice(0, 40) : null,
       };
     }
     case "call": {

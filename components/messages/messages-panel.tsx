@@ -24,6 +24,10 @@ import {
   documentsToPickerItems,
   listSharedDocuments,
 } from "@/lib/documents";
+import {
+  expensesToPickerItems,
+  listReferenceableExpenses,
+} from "@/lib/expenses";
 import type {
   HouseholdMemberProfile,
   MessageWithSender,
@@ -42,6 +46,7 @@ import {
   ReferencePicker,
   type PickerCalendarItem,
   type PickerDocumentItem,
+  type PickerExpenseItem,
 } from "@/components/messages/reference-picker";
 import { SuggestionBanner } from "@/components/calendar/suggestion-banner";
 import type { CalendarSuggestion } from "@/lib/types";
@@ -166,6 +171,7 @@ export function MessagesPanel({
   } | null>(null);
   const [calendarEvents, setCalendarEvents] = useState<PickerCalendarItem[]>([]);
   const [documents, setDocuments] = useState<PickerDocumentItem[]>([]);
+  const [expenses, setExpenses] = useState<PickerExpenseItem[]>([]);
   const [suggestions, setSuggestions] = useState<CalendarSuggestion[]>([]);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const coachRef = useRef<HTMLDivElement | null>(null);
@@ -201,9 +207,10 @@ export function MessagesPanel({
         userId,
         calendarEvents,
         documents,
+        expenses,
         callLogs: [],
       }),
-    [messages, userId, calendarEvents, documents]
+    [messages, userId, calendarEvents, documents, expenses]
   );
 
   const pickerMessages = useMemo(
@@ -235,6 +242,19 @@ export function MessagesPanel({
       return;
     }
     setDocuments(documentsToPickerItems(rows));
+  }, [householdId, supabase]);
+
+  const refreshExpenses = useCallback(async () => {
+    const { expenses: rows, error: expErr } = await listReferenceableExpenses(
+      supabase,
+      householdId,
+      { limit: 40 }
+    );
+    if (expErr) {
+      setExpenses([]);
+      return;
+    }
+    setExpenses(expensesToPickerItems(rows));
   }, [householdId, supabase]);
 
   const refreshSuggestions = useCallback(async () => {
@@ -269,8 +289,9 @@ export function MessagesPanel({
   useEffect(() => {
     void refreshCalendar();
     void refreshDocuments();
+    void refreshExpenses();
     void refreshSuggestions();
-  }, [refreshCalendar, refreshDocuments, refreshSuggestions]);
+  }, [refreshCalendar, refreshDocuments, refreshExpenses, refreshSuggestions]);
 
   const escalated = flagCount >= ESCALATE_AFTER_FLAGS;
   const bodyHostile = looksHostileClient(body);
@@ -1281,6 +1302,7 @@ export function MessagesPanel({
           messages={pickerMessages}
           calendarEvents={calendarEvents}
           documents={documents}
+          expenses={expenses}
           callLogs={[]}
         />
       ) : null}

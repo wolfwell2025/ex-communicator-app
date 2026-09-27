@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "Expected { kind: 'message'|'calendar'|'document'|'call', record: object with real fields }",
+          "Expected { kind: 'message'|'calendar'|'document'|'expense'|'call', record: object with real fields }",
       },
       { status: 400 }
     );

@@ -27,6 +27,17 @@ export type PickerDocumentItem = {
   snippet?: string | null;
 };
 
+export type PickerExpenseItem = {
+  id: string;
+  title: string;
+  categoryLabel?: string | null;
+  statusLabel?: string | null;
+  amountLabel?: string | null;
+  shareLabel?: string | null;
+  incurredOn?: string | null;
+  status?: string | null;
+};
+
 export type PickerCallItem = {
   id: string;
   summary: string;
@@ -43,6 +54,7 @@ type Props = {
   messages: ContextMessage[];
   calendarEvents?: PickerCalendarItem[];
   documents?: PickerDocumentItem[];
+  expenses?: PickerExpenseItem[];
   callLogs?: PickerCallItem[];
 };
 
@@ -77,6 +89,14 @@ const KIND_META: Record<
       "Only household-shared documents appear here. Upload a file on Documents (shared by default) — we will not invent fake documents.",
     addHref: "/app/documents",
     addLabel: "Open Documents",
+  },
+  expense: {
+    title: "Reference an expense",
+    emptyTitle: "No shared expenses yet",
+    emptyBody:
+      "Only requested, accepted, or paid expenses appear here. Add one on Expenses and request reimbursement — we will not invent fake amounts.",
+    addHref: "/app/expenses",
+    addLabel: "Open Expenses",
   },
   call: {
     title: "Reference a call",
@@ -118,6 +138,7 @@ export function ReferencePicker({
   messages,
   calendarEvents = [],
   documents = [],
+  expenses = [],
   callLogs = [],
 }: Props) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -189,6 +210,31 @@ export function ReferencePicker({
             snippet: d.snippet ?? null,
           },
         }));
+      case "expense":
+        return expenses.map((e) => ({
+          key: e.id,
+          title: e.title || "Untitled expense",
+          subtitle: [
+            e.categoryLabel || null,
+            e.statusLabel || null,
+            e.amountLabel ? `Total ${e.amountLabel}` : null,
+            e.shareLabel ? `Share ${e.shareLabel}` : null,
+            e.incurredOn || null,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+          record: {
+            kind: "expense" as const,
+            id: e.id,
+            title: e.title,
+            categoryLabel: e.categoryLabel ?? null,
+            statusLabel: e.statusLabel ?? null,
+            amountLabel: e.amountLabel ?? null,
+            shareLabel: e.shareLabel ?? null,
+            incurredOn: e.incurredOn ?? null,
+            status: e.status ?? null,
+          },
+        }));
       case "call":
         return callLogs.map((c) => ({
           key: c.id,
@@ -207,7 +253,7 @@ export function ReferencePicker({
       default:
         return [];
     }
-  }, [kind, messages, calendarEvents, documents, callLogs]);
+  }, [kind, messages, calendarEvents, documents, expenses, callLogs]);
 
   const selected = rows.find((r) => r.key === selectedKey) ?? null;
   const confirmFacts = selected ? factsFromRecord(selected.record) : [];

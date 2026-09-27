@@ -219,3 +219,46 @@ export type HouseholdDocument = {
   created_at: string;
   updated_at: string;
 };
+
+export type ExpenseCategory =
+  | "medical"
+  | "school"
+  | "activity"
+  | "childcare"
+  | "clothing"
+  | "other";
+
+export type ExpenseStatus =
+  | "draft"
+  | "requested"
+  | "accepted"
+  | "declined"
+  | "paid"
+  | "canceled";
+
+export type Expense = {
+  id: string;
+  household_id: string;
+  title: string;
+  description: string | null;
+  category: ExpenseCategory;
+  amount_cents: number;
+  currency: string;
+  incurred_on: string;
+  requester_id: string;
+  share_cents: number;
+  status: ExpenseStatus;
+  document_id: string | null;
+  requested_at: string | null;
+  responded_at: string | null;
+  responded_by: string | null;
+  paid_at: string | null;
+  paid_noted_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ExpenseWithDocument = Expense & {
+  document_title?: string | null;
+  document_file_name?: string | null;
+};

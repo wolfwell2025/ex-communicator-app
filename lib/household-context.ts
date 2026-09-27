@@ -1,9 +1,9 @@
 /**
  * Household context for tone coaching rewrites.
- * Messages + shared calendar + shared documents are live; calls stay empty
- * until that module ships. Prefer empty/real over fabricated demo rows.
- * Calendar / documents context must use visibility=shared only
- * (never private/pending).
+ * Messages + shared calendar + shared documents + expenses are live; calls
+ * stay empty until that module ships. Prefer empty/real over fabricated demo
+ * rows. Calendar / documents context must use visibility=shared only
+ * (never private/pending). Expenses use requested/accepted/paid only.
  */
 
 export type ContextMessage = {
@@ -31,6 +31,17 @@ export type ContextDocument = {
   snippet?: string | null;
 };
 
+export type ContextExpense = {
+  id: string;
+  title: string;
+  categoryLabel?: string | null;
+  statusLabel?: string | null;
+  amountLabel?: string | null;
+  shareLabel?: string | null;
+  incurredOn?: string | null;
+  status?: string | null;
+};
+
 export type ContextCallLog = {
   id: string;
   summary: string;
@@ -42,10 +53,16 @@ export type HouseholdToneContext = {
   recentMessages?: ContextMessage[];
   calendarEvents?: ContextCalendarEvent[];
   documents?: ContextDocument[];
+  expenses?: ContextExpense[];
   callLogs?: ContextCallLog[];
 };
 
-export type ReferenceKind = "message" | "calendar" | "document" | "call";
+export type ReferenceKind =
+  | "message"
+  | "calendar"
+  | "document"
+  | "expense"
+  | "call";
 
 export const REFERENCE_CHIPS: Array<{
   id: ReferenceKind;
@@ -56,6 +73,7 @@ export const REFERENCE_CHIPS: Array<{
   { id: "message", label: "Reference last message", stub: false },
   { id: "calendar", label: "Reference calendar", stub: false },
   { id: "document", label: "Reference document", stub: false },
+  { id: "expense", label: "Reference expense", stub: false },
   { id: "call", label: "Reference call", stub: true },
 ];
 
@@ -120,6 +138,20 @@ export function formatContextForPrompt(ctx: HouseholdToneContext): string {
     );
   }
 
+  const expenses = ctx.expenses ?? [];
+  if (expenses.length > 0) {
+    lines.push("Shared expenses:");
+    for (const e of expenses.slice(0, 5)) {
+      lines.push(
+        `- ${e.title}${e.categoryLabel ? ` [${e.categoryLabel}]` : ""}${e.amountLabel ? ` total ${e.amountLabel}` : ""}${e.shareLabel ? ` share ${e.shareLabel}` : ""}${e.statusLabel ? ` (${e.statusLabel})` : ""}`
+      );
+    }
+  } else {
+    lines.push(
+      "Expenses: (empty - no reimbursement rows; do not invent amounts)"
+    );
+  }
+
   const calls = ctx.callLogs ?? [];
   if (calls.length > 0) {
     lines.push("Call / conversation logs:");
@@ -176,6 +208,14 @@ export function referenceSnippet(
       }
       return "";
     }
+    case "expense": {
+      const expense = ctx.expenses?.[0];
+      if (expense?.title?.trim()) {
+        const amount = expense.shareLabel || expense.amountLabel;
+        return `Regarding the expense "${expense.title}"${amount ? ` (${amount})` : ""}: `;
+      }
+      return "";
+    }
     case "call": {
       const call = ctx.callLogs?.[0];
       if (call?.occurredAt && call.summary?.trim()) {
@@ -219,6 +259,7 @@ export function buildClientToneContext(args: {
   userId: string;
   calendarEvents?: ContextCalendarEvent[];
   documents?: ContextDocument[];
+  expenses?: ContextExpense[];
   callLogs?: ContextCallLog[];
 }): HouseholdToneContext {
   const recentMessages: ContextMessage[] = args.messages.slice(-8).map((m) => ({
@@ -237,6 +278,7 @@ export function buildClientToneContext(args: {
     recentMessages,
     calendarEvents: args.calendarEvents ?? [],
     documents: args.documents ?? [],
+    expenses: args.expenses ?? [],
     callLogs: args.callLogs ?? [],
   };
 }

@@ -23,14 +23,14 @@ const modules = [
     href: "/app/documents",
     title: "Documents",
     body: "Court orders, school forms, and shared file vault.",
-    live: false,
+    live: true,
     icon: "📁",
   },
   {
     href: "/app/expenses",
     title: "Expenses",
-    body: "Shared cost tracking and payment history.",
-    live: false,
+    body: "Kids costs, reimbursement requests, and paid history.",
+    live: true,
     icon: "💳",
   },
 ];
@@ -65,7 +65,7 @@ export default async function AppHomePage() {
               <span className="font-semibold text-foreground">{household.name}</span>
             </>
           ) : null}
-          . Messages and Calendar are live; documents and expenses are still stubs.
+          . Messages, Calendar, Documents, and Expenses are live.
         </p>
         {householdError ? (
           <p className="mt-3 rounded-2xl border border-amber-200 bg-warning-soft p-4 text-sm text-amber-900">

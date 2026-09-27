@@ -18,7 +18,7 @@ Next.js App Router starter (TypeScript + Tailwind + ESLint) with Supabase Auth w
 | `/app/messages` | Threaded messaging (subject, To, search) + transcript export |
 | `/app/calendar` | Shared custody calendar (private / propose / accept) + Google import/export |
 | `/app/documents` | Household document vault (upload / share / reference) |
-| `/app/expenses` | Expenses stub |
+| `/app/expenses` | Shared kids expenses + reimbursement workflow |
 | `/app/invite/[token]` | Accept co-parent household invite |
 | `/app/messages/export` | Print-friendly transcript (watermarked) |
 
@@ -90,8 +90,9 @@ Open Supabase Dashboard → **SQL Editor** for project `pryvielnxaxylcxihgpk`. I
 5. [`supabase/migrations/005_documents.sql`](supabase/migrations/005_documents.sql) — `documents` table + private Storage bucket `documents` with RLS.
 6. [`supabase/migrations/006_message_threads.sql`](supabase/migrations/006_message_threads.sql) — message threads (subjects, recipients, search). Migrates existing flat messages into a legacy "Household messages" thread.
 7. [`supabase/migrations/007_calendar_suggestions_and_export.sql`](supabase/migrations/007_calendar_suggestions_and_export.sql) — `calendar_suggestions` (message/doc date prompts) + `export_enabled` on Google connections. After OAuth scope upgrade, use **Reconnect Google for two-way sync** if Export stays disabled.
+8. [`supabase/migrations/008_expenses.sql`](supabase/migrations/008_expenses.sql) — `expenses` table with reimbursement statuses (`draft` / `requested` / `accepted` / `declined` / `paid` / `canceled`) and optional receipt `document_id`. See `EXPENSES-SETUP.md`.
 
-Confirm tables exist, then sign in and open `/app`, `/app/calendar`, `/app/messages`, and `/app/documents`.
+Confirm tables exist, then sign in and open `/app`, `/app/calendar`, `/app/messages`, `/app/documents`, and `/app/expenses`.
 
 ### Calendar privacy
 
@@ -106,6 +107,14 @@ Confirm tables exist, then sign in and open `/app`, `/app/calendar`, `/app/messa
 - **private** — only the uploader (optional checkbox at upload). Co-parent sees nothing until Propose → Accept.
 - **pending** — proposed to household; appears in Documents Share requests for the co-parent.
 - **Storage** — private bucket `documents`; paths `{household_id}/{user_id}/…`; download via short-lived signed URLs. Migration 005 creates the bucket + Storage RLS.
+
+### Expenses
+
+- Log kids costs (medical, school, activity, childcare, clothing, other).
+- Request reimbursement: co-parent Accept / Decline; either parent can Mark paid after settling outside the app.
+- Optional receipt: upload into Documents (`category = expense`, shared) or link an existing shared expense/medical document.
+- Reference expense chip in Messages uses requested / accepted / paid rows only.
+- See [`EXPENSES-SETUP.md`](EXPENSES-SETUP.md).
 
 ### Invite co-parent
 
@@ -127,7 +136,7 @@ Follow [`GOOGLE-SETUP.md`](GOOGLE-SETUP.md) for OAuth credentials, Maps key, env
 1. Finish Google Cloud OAuth + Places keys; run migration 004; connect multiple calendars.
 2. Run migration 005; upload a decree PDF; confirm Reference document in Messages.
 3. Run migration 006 for threaded subjects / recipients / search.
-4. Expenses module.
+4. Run migration 008; add an expense and exercise Accept / Mark paid with a co-parent.
 
 ## Notes
 
