@@ -69,3 +69,27 @@ them until propose + accept in-app.
 
 Also run migration `004_calendar_oauth_tokens.sql` in Supabase SQL Editor
 (multi-calendar columns + private-import trigger).
+
+
+## Outlook / Microsoft 365 Calendar
+
+See **OUTLOOK-CALENDAR-SETUP.md** for Azure portal steps. Add these for Production
+(and Preview if needed), then redeploy:
+
+| Name | Value |
+| --- | --- |
+| `MICROSOFT_CLIENT_ID` | Azure Application (client) ID |
+| `MICROSOFT_CLIENT_SECRET` | Client secret value |
+| `MICROSOFT_TENANT_ID` | Optional; default `common` |
+| `MICROSOFT_REDIRECT_URI` | Optional; default `https://ex-communicator-app.vercel.app/api/calendar/outlook/callback` |
+| `CALENDAR_TOKEN_SECRET` | Same AES secret used for Google tokens (recommended) |
+
+**Redirect URIs to allow in Azure App registration (Web):**
+
+- `https://ex-communicator-app.vercel.app/api/calendar/outlook/callback`
+- `http://localhost:3000/api/calendar/outlook/callback` (local)
+
+**Privacy:** Outlook sync imports events as **private** only. Co-parent never sees
+them until propose + accept in-app.
+
+Also run migration `011_outlook_calendar.sql` in Supabase SQL Editor.

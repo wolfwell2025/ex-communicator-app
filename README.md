@@ -16,7 +16,7 @@ Next.js App Router starter (TypeScript + Tailwind + ESLint) with Supabase Auth w
 | `/auth/confirm` | Email OTP / magic-link confirmation |
 | `/app` | Authenticated shell (requires session) |
 | `/app/messages` | Threaded messaging (subject, To, search) + transcript export |
-| `/app/calendar` | Shared custody calendar (private / propose / accept) + Google import/export |
+| `/app/calendar` | Shared custody calendar (private / propose / accept) + Google / Outlook import/export |
 | `/app/documents` | Parenting team document vault (upload / share / reference) |
 | `/app/expenses` | Shared kids expenses + reimbursement workflow |
 | `/app/invite/[token]` | Accept co-parent parenting team invite |
@@ -89,7 +89,8 @@ Open Supabase Dashboard → **SQL Editor** for project `pryvielnxaxylcxihgpk`. I
 4. [`supabase/migrations/004_calendar_oauth_tokens.sql`](supabase/migrations/004_calendar_oauth_tokens.sql) — multi-calendar OAuth columns + imported-events-must-insert-private trigger.
 5. [`supabase/migrations/005_documents.sql`](supabase/migrations/005_documents.sql) — `documents` table + private Storage bucket `documents` with RLS.
 6. [`supabase/migrations/006_message_threads.sql`](supabase/migrations/006_message_threads.sql) — message threads (subjects, recipients, search). Migrates existing flat messages into a legacy thread (DB subject may still say Household messages).
-7. [`supabase/migrations/007_calendar_suggestions_and_export.sql`](supabase/migrations/007_calendar_suggestions_and_export.sql) — `calendar_suggestions` (message/doc date prompts) + `export_enabled` on Google connections. After OAuth scope upgrade, use **Reconnect Google for two-way sync** if Export stays disabled.
+7. [`supabase/migrations/007_calendar_suggestions_and_export.sql`](supabase/migrations/007_calendar_suggestions_and_export.sql) — `calendar_suggestions` (message/doc date prompts) + `export_enabled` on connections. After OAuth scope upgrade, use **Reconnect Google/Outlook for two-way sync** if Export stays disabled.
+8. [`supabase/migrations/011_outlook_calendar.sql`](supabase/migrations/011_outlook_calendar.sql) — Outlook / Microsoft 365 calendar (re-asserts private-import trigger; documents export).
 8. [`supabase/migrations/008_expenses.sql`](supabase/migrations/008_expenses.sql) — `expenses` table with reimbursement statuses (`draft` / `requested` / `accepted` / `declined` / `paid` / `canceled`) and optional receipt `document_id`. See `EXPENSES-SETUP.md`.
 9. [`supabase/migrations/009_profile_fields.sql`](supabase/migrations/009_profile_fields.sql) — profile `phone` + `avatar_path` and private Storage bucket `avatars`. See `PROFILE-SETUP.md`.
 10. [`supabase/migrations/010_parenting_team_roles.sql`](supabase/migrations/010_parenting_team_roles.sql) — expand membership roles; user-facing Parenting team naming (DB tables stay `households`). See `PARENTING-TEAM.md`.
@@ -101,7 +102,7 @@ Confirm tables exist, then sign in and open `/app`, `/app/calendar`, `/app/messa
 - **private** — only the creator can see the event (co-parent sees nothing).
 - **pending** - proposed to parenting team; appears in Share requests for the co-parent, not on the shared month grid until accepted.
 - **shared** - visible to all parenting team members; Reference calendar chip uses shared events only.
-- **Google sync** — connect multiple calendars (personal / work / family). Imports are **always private**. Export is opt-in per calendar (`export_enabled`). Connecting never auto-shares. Share only via Propose → Accept. See `GOOGLE-SETUP.md`.
+- **Google / Outlook sync** — connect multiple calendars (personal / work / family). Imports are **always private**. Export is opt-in per calendar (`export_enabled`). Connecting never auto-shares. Share only via Propose → Accept. See `GOOGLE-SETUP.md` and `OUTLOOK-CALENDAR-SETUP.md`.
 
 ### Documents privacy
 
@@ -132,6 +133,10 @@ On Dashboard or Calendar, use **Invite co-parent**: enter their email → Copy l
 ## Google Calendar + Places
 
 Follow [`GOOGLE-SETUP.md`](GOOGLE-SETUP.md) for OAuth credentials, Maps key, env vars, and redirect URIs.
+
+## Outlook / Microsoft 365 Calendar
+
+Follow [`OUTLOOK-CALENDAR-SETUP.md`](OUTLOOK-CALENDAR-SETUP.md) for Azure app registration, Graph scopes (`Calendars.ReadWrite`), env vars, and redirect URIs.
 
 ### Messaging threads
 

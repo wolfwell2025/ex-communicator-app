@@ -44,6 +44,9 @@ type Props = {
   googlePick?: boolean;
   googleUpgraded?: boolean;
   googleError?: string | null;
+  outlookPick?: boolean;
+  outlookUpgraded?: boolean;
+  outlookError?: string | null;
 };
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -253,6 +256,9 @@ export function CalendarPanel({
   googlePick = false,
   googleUpgraded = false,
   googleError = null,
+  outlookPick = false,
+  outlookUpgraded = false,
+  outlookError = null,
 }: Props) {
   const supabase = useMemo(() => createClient(), []);
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
@@ -431,6 +437,11 @@ export function CalendarPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventId: editingId, action: "upsert" }),
       });
+      void fetch("/api/calendar/outlook/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: editingId, action: "upsert" }),
+      });
     } else {
       const { event: created, error: createErr } = await createCalendarEvent(
         supabase,
@@ -454,6 +465,11 @@ export function CalendarPanel({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ eventId: created.id, action: "upsert" }),
         });
+        void fetch("/api/calendar/outlook/export", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ eventId: created.id, action: "upsert" }),
+        });
       }
     }
 
@@ -469,13 +485,20 @@ export function CalendarPanel({
     setBusy(true);
     setError(null);
     try {
-      await fetch("/api/calendar/google/export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId, action: "delete" }),
-      });
+      await Promise.all([
+        fetch("/api/calendar/google/export", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ eventId, action: "delete" }),
+        }),
+        fetch("/api/calendar/outlook/export", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ eventId, action: "delete" }),
+        }),
+      ]);
     } catch {
-      // best-effort Google delete
+      // best-effort external calendar delete
     }
     const { error: delErr } = await deleteCalendarEvent(supabase, eventId);
     if (delErr) setError(delErr);
@@ -555,15 +578,23 @@ export function CalendarPanel({
         <div className="flex flex-wrap gap-2">
           <a
             href={
-              connections.some((c) => c.provider === "google" && c.status === "connected")
+              connections.some(
+                (c) =>
+                  (c.provider === "google" || c.provider === "outlook") &&
+                  c.status === "connected"
+              )
                 ? "#connected-calendars"
                 : "/api/calendar/google/connect"
             }
             className={secondaryBtn}
           >
-            {connections.some((c) => c.provider === "google" && c.status === "connected")
+            {connections.some(
+              (c) =>
+                (c.provider === "google" || c.provider === "outlook") &&
+                c.status === "connected"
+            )
               ? "Manage calendars"
-              : "Connect Google"}
+              : "Connect calendar"}
           </a>
           <button type="button" className={primaryBtn} onClick={() => openCreate()}>
             New event
@@ -575,8 +606,11 @@ export function CalendarPanel({
         connections={connections}
         onChanged={refresh}
         autoOpenPicker={googlePick}
+        autoOpenOutlookPicker={outlookPick}
         googleUpgraded={googleUpgraded}
+        outlookUpgraded={outlookUpgraded}
         flashError={googleError}
+        outlookFlashError={outlookError}
       />
 
       {error ? (
@@ -868,9 +902,10 @@ export function CalendarPanel({
                         <div className="min-w-0">
                           <p className="font-semibold text-foreground">
                             {event.title}
-                            {event.source === "google" ? (
+                            {event.source === "google" ||
+                            event.source === "outlook" ? (
                               <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-muted">
-                                Google
+                                {event.source === "google" ? "Google" : "Outlook"}
                               </span>
                             ) : null}
                           </p>

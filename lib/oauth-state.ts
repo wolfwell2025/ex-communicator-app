@@ -1,18 +1,23 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 
-const COOKIE_NAME = "gcal_oauth_state";
+const GOOGLE_COOKIE_NAME = "gcal_oauth_state";
+const OUTLOOK_COOKIE_NAME = "ocal_oauth_state";
 const MAX_AGE_SEC = 600;
 
 function signingKey(): string {
   return (
     process.env.CALENDAR_TOKEN_SECRET?.trim() ||
     process.env.GOOGLE_CLIENT_SECRET?.trim() ||
+    process.env.MICROSOFT_CLIENT_SECRET?.trim() ||
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
     "dev-insecure-oauth-state"
   );
 }
 
-export function createOAuthState(userId: string): {
+export function createOAuthState(
+  userId: string,
+  cookieName: string = GOOGLE_COOKIE_NAME
+): {
   state: string;
   cookieValue: string;
   cookieName: string;
@@ -27,7 +32,7 @@ export function createOAuthState(userId: string): {
   return {
     state,
     cookieValue: state,
-    cookieName: COOKIE_NAME,
+    cookieName,
     maxAge: MAX_AGE_SEC,
   };
 }
@@ -60,4 +65,7 @@ export function verifyOAuthState(
   }
 }
 
-export { COOKIE_NAME as OAUTH_STATE_COOKIE };
+export {
+  GOOGLE_COOKIE_NAME as OAUTH_STATE_COOKIE,
+  OUTLOOK_COOKIE_NAME as OUTLOOK_OAUTH_STATE_COOKIE,
+};

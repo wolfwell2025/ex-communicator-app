@@ -7,17 +7,19 @@ import {
 
 /**
  * Encrypt short secrets (OAuth tokens) for DB storage.
- * Key material: CALENDAR_TOKEN_SECRET, else GOOGLE_CLIENT_SECRET.
+ * Key material: CALENDAR_TOKEN_SECRET, else GOOGLE_CLIENT_SECRET,
+ * else MICROSOFT_CLIENT_SECRET.
  * Format: v1:<iv_b64>:<tag_b64>:<cipher_b64>
  */
 
 function getKeyMaterial(): Buffer {
   const secret =
     process.env.CALENDAR_TOKEN_SECRET?.trim() ||
-    process.env.GOOGLE_CLIENT_SECRET?.trim();
+    process.env.GOOGLE_CLIENT_SECRET?.trim() ||
+    process.env.MICROSOFT_CLIENT_SECRET?.trim();
   if (!secret) {
     throw new Error(
-      "Missing CALENDAR_TOKEN_SECRET (or GOOGLE_CLIENT_SECRET) for token encryption"
+      "Missing CALENDAR_TOKEN_SECRET (or GOOGLE_CLIENT_SECRET / MICROSOFT_CLIENT_SECRET) for token encryption"
     );
   }
   return createHash("sha256").update(secret).digest();
@@ -55,6 +57,7 @@ export function decryptSecret(payload: string): string {
 export function canEncryptTokens(): boolean {
   return Boolean(
     process.env.CALENDAR_TOKEN_SECRET?.trim() ||
-      process.env.GOOGLE_CLIENT_SECRET?.trim()
+      process.env.GOOGLE_CLIENT_SECRET?.trim() ||
+      process.env.MICROSOFT_CLIENT_SECRET?.trim()
   );
 }

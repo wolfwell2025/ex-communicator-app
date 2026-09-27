@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { connectionHasWriteScope } from "@/lib/google-calendar-scopes";
+import { outlookConnectionHasWriteScope } from "@/lib/outlook-calendar-scopes";
 import type { PersonalCalendarConnection } from "@/lib/types";
 
 const secondaryBtn =
@@ -10,20 +11,26 @@ const secondaryBtn =
 const primaryBtn =
   "inline-flex items-center justify-center rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-white shadow-[var(--shadow-sm)] transition-colors hover:bg-accent-hover disabled:opacity-50";
 
-type GoogleCalOption = {
+type CalOption = {
   id: string;
   summary: string;
   primary?: boolean;
   alreadyConnected?: boolean;
 };
 
+type PickerProvider = "google" | "outlook";
+
 type Props = {
   connections: PersonalCalendarConnection[];
   onChanged: () => Promise<void> | void;
   autoOpenPicker?: boolean;
+  autoOpenOutlookPicker?: boolean;
   googleUpgraded?: boolean;
+  outlookUpgraded?: boolean;
   flashError?: string | null;
+  outlookFlashError?: string | null;
   oauthConfiguredHint?: boolean;
+  outlookOAuthConfiguredHint?: boolean;
 };
 
 const LABEL_COLORS = [
@@ -47,10 +54,10 @@ function colorForLabel(label: string | null, id: string): string {
 function inferKind(label: string | null, calendarId: string | null): string {
   const s = `${label ?? ""} ${calendarId ?? ""}`.toLowerCase();
   if (/\b(work|office|job|corp)\b/.test(s)) return "Work";
-  if (/\b(family|kids|children|shared|household)\b/.test(s)) return "Family";
+  if (/\b(family|kids|children|shared|household|parenting)\b/.test(s)) return "Family";
   if (/\b(personal|me|home|primary)\b/.test(s)) return "Personal";
   if (label && label.trim()) return "Custom";
-  return "Google";
+  return "Calendar";
 }
 
 function formatRelativeSync(iso: string | null): string {
@@ -69,83 +76,128 @@ function formatRelativeSync(iso: string | null): string {
   return `Synced ${new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
 }
 
+function hasWriteScope(
+  provider: PickerProvider,
+  scopes: string | null | undefined
+): boolean {
+  return provider === "google"
+    ? connectionHasWriteScope(scopes)
+    : outlookConnectionHasWriteScope(scopes);
+}
+
 export function ConnectedCalendars({
   connections,
   onChanged,
   autoOpenPicker,
+  autoOpenOutlookPicker,
   googleUpgraded = false,
+  outlookUpgraded = false,
   flashError,
+  outlookFlashError,
   oauthConfiguredHint = true,
+  outlookOAuthConfiguredHint = true,
 }: Props) {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(flashError ?? null);
+  const [error, setError] = useState<string | null>(
+    flashError ?? outlookFlashError ?? null
+  );
   const [note, setNote] = useState<string | null>(
     googleUpgraded
       ? "Google write access updated. You can turn Export on."
-      : null
+      : outlookUpgraded
+        ? "Outlook write access updated. You can turn Export on."
+        : null
   );
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerProvider, setPickerProvider] = useState<PickerProvider>("google");
   const [fromConnection, setFromConnection] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
-  const [options, setOptions] = useState<GoogleCalOption[]>([]);
+  const [options, setOptions] = useState<CalOption[]>([]);
   const [selected, setSelected] = useState<Record<string, string>>({});
   const [privacyNote, setPrivacyNote] = useState<string | null>(null);
   const autoOpened = useRef(false);
+  const autoOpenedOutlook = useRef(false);
 
   const googleConnections = connections.filter(
     (c) => c.provider === "google" && c.status === "connected"
   );
-
-  const needsWriteReconnect = googleConnections.some(
-    (c) => !connectionHasWriteScope(c.scopes)
+  const outlookConnections = connections.filter(
+    (c) => c.provider === "outlook" && c.status === "connected"
   );
 
-  const loadPicker = useCallback(async (reuseConnectionId?: string) => {
-    setBusy(true);
-    setError(null);
-    try {
-      const qs = reuseConnectionId
-        ? `?fromConnection=${encodeURIComponent(reuseConnectionId)}`
-        : "";
-      const res = await fetch(`/api/calendar/google/calendars${qs}`);
-      const json = (await res.json()) as {
-        email?: string;
-        calendars?: GoogleCalOption[];
-        privacyNote?: string;
-        error?: string;
-      };
-      if (!res.ok) {
-        setError(json.error || "Could not list Google calendars.");
-        setBusy(false);
-        return;
-      }
-      setEmail(json.email ?? null);
-      setOptions(json.calendars ?? []);
-      setPrivacyNote(json.privacyNote ?? null);
-      const initial: Record<string, string> = {};
-      for (const c of json.calendars ?? []) {
-        // Pre-check already-connected and primary so reconnect can refresh tokens/scopes
-        if (c.alreadyConnected || c.primary) {
-          initial[c.id] = c.summary;
+  const needsGoogleWriteReconnect = googleConnections.some(
+    (c) => !connectionHasWriteScope(c.scopes)
+  );
+  const needsOutlookWriteReconnect = outlookConnections.some(
+    (c) => !outlookConnectionHasWriteScope(c.scopes)
+  );
+
+  const apiBase = (provider: PickerProvider) =>
+    provider === "google" ? "/api/calendar/google" : "/api/calendar/outlook";
+
+  const providerLabel = (provider: PickerProvider) =>
+    provider === "google" ? "Google" : "Outlook";
+
+  const loadPicker = useCallback(
+    async (provider: PickerProvider, reuseConnectionId?: string) => {
+      setBusy(true);
+      setError(null);
+      setPickerProvider(provider);
+      try {
+        const qs = reuseConnectionId
+          ? `?fromConnection=${encodeURIComponent(reuseConnectionId)}`
+          : "";
+        const res = await fetch(`${apiBase(provider)}/calendars${qs}`);
+        const json = (await res.json()) as {
+          email?: string;
+          calendars?: CalOption[];
+          privacyNote?: string;
+          error?: string;
+        };
+        if (!res.ok) {
+          setError(
+            json.error || `Could not list ${providerLabel(provider)} calendars.`
+          );
+          setBusy(false);
+          return;
         }
+        setEmail(json.email ?? null);
+        setOptions(json.calendars ?? []);
+        setPrivacyNote(json.privacyNote ?? null);
+        const initial: Record<string, string> = {};
+        for (const c of json.calendars ?? []) {
+          if (c.alreadyConnected || c.primary) {
+            initial[c.id] = c.summary;
+          }
+        }
+        setSelected(initial);
+        setFromConnection(reuseConnectionId ?? null);
+        setPickerOpen(true);
+      } catch {
+        setError(`Could not list ${providerLabel(provider)} calendars.`);
       }
-      setSelected(initial);
-      setFromConnection(reuseConnectionId ?? null);
-      setPickerOpen(true);
-    } catch {
-      setError("Could not list Google calendars.");
-    }
-    setBusy(false);
-  }, []);
+      setBusy(false);
+    },
+    []
+  );
 
   useEffect(() => {
     if (!autoOpenPicker || autoOpened.current) return;
     autoOpened.current = true;
     const t = window.setTimeout(() => {
-      void loadPicker();
+      void loadPicker("google");
     }, 0);
     return () => window.clearTimeout(t);
   }, [autoOpenPicker, loadPicker]);
+
+  useEffect(() => {
+    if (!autoOpenOutlookPicker || autoOpenedOutlook.current) return;
+    autoOpenedOutlook.current = true;
+    const t = window.setTimeout(() => {
+      void loadPicker("outlook");
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [autoOpenOutlookPicker, loadPicker]);
 
   async function saveSelection() {
     const calendars = Object.entries(selected).map(([id, label]) => {
@@ -159,7 +211,7 @@ export function ConnectedCalendars({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/calendar/google/select", {
+      const res = await fetch(`${apiBase(pickerProvider)}/select`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -193,10 +245,14 @@ export function ConnectedCalendars({
     setBusy(false);
   }
 
-  async function toggleSync(connectionId: string, syncEnabled: boolean) {
+  async function toggleSync(
+    provider: PickerProvider,
+    connectionId: string,
+    syncEnabled: boolean
+  ) {
     setBusy(true);
     setError(null);
-    const res = await fetch("/api/calendar/google/toggle", {
+    const res = await fetch(`${apiBase(provider)}/toggle`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ connectionId, syncEnabled }),
@@ -207,10 +263,14 @@ export function ConnectedCalendars({
     await onChanged();
   }
 
-  async function toggleExport(connectionId: string, exportEnabled: boolean) {
+  async function toggleExport(
+    provider: PickerProvider,
+    connectionId: string,
+    exportEnabled: boolean
+  ) {
     setBusy(true);
     setError(null);
-    const res = await fetch("/api/calendar/google/toggle", {
+    const res = await fetch(`${apiBase(provider)}/toggle`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ connectionId, exportEnabled }),
@@ -219,17 +279,17 @@ export function ConnectedCalendars({
     if (!res.ok) setError(json.error || "Could not update export.");
     else if (exportEnabled) {
       setNote(
-        "Export on. New events you create in Ex Communicator will be pushed to this Google calendar. Co-parent private events are never exported."
+        `Export on. New events you create in Ex Communicator will be pushed to this ${providerLabel(provider)} calendar. Co-parent private events are never exported.`
       );
     }
     setBusy(false);
     await onChanged();
   }
 
-  async function syncOne(connectionId: string) {
+  async function syncOne(provider: PickerProvider, connectionId: string) {
     setBusy(true);
     setError(null);
-    const res = await fetch("/api/calendar/google/sync", {
+    const res = await fetch(`${apiBase(provider)}/sync`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ connectionId }),
@@ -250,7 +310,7 @@ export function ConnectedCalendars({
     await onChanged();
   }
 
-  async function removeOne(connectionId: string) {
+  async function removeOne(provider: PickerProvider, connectionId: string) {
     if (
       !window.confirm(
         "Disconnect this calendar? Imported private events will be kept unless you choose to remove them next."
@@ -259,11 +319,11 @@ export function ConnectedCalendars({
       return;
     }
     const removeImported = window.confirm(
-      "Also delete events previously imported from this calendar? (Only your private Google imports.)"
+      `Also delete events previously imported from this calendar? (Only your private ${providerLabel(provider)} imports.)`
     );
     setBusy(true);
     setError(null);
-    const res = await fetch("/api/calendar/google/disconnect", {
+    const res = await fetch(`${apiBase(provider)}/disconnect`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -277,7 +337,7 @@ export function ConnectedCalendars({
     await onChanged();
   }
 
-  function toggleOption(cal: GoogleCalOption) {
+  function toggleOption(cal: CalOption) {
     setSelected((prev) => {
       const next = { ...prev };
       if (next[cal.id] !== undefined) {
@@ -288,6 +348,154 @@ export function ConnectedCalendars({
       return next;
     });
   }
+
+  function renderConnectionRow(
+    c: PersonalCalendarConnection,
+    provider: PickerProvider
+  ) {
+    const color = colorForLabel(c.label, c.id);
+    const kind = inferKind(c.label, c.external_calendar_id);
+    const displayName =
+      c.label?.trim() ||
+      c.external_calendar_id ||
+      `${providerLabel(provider)} calendar`;
+    const canWrite = hasWriteScope(provider, c.scopes);
+    return (
+      <li
+        key={c.id}
+        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background px-3 py-3 sm:px-3.5"
+      >
+        <div className="flex min-w-0 items-start gap-3">
+          <span
+            className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white shadow-[var(--shadow-sm)]"
+            style={{ backgroundColor: color }}
+            aria-hidden
+          >
+            {(displayName.slice(0, 1) || "C").toUpperCase()}
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <p className="truncate font-semibold text-foreground">
+                {displayName}
+              </p>
+              <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted ring-1 ring-border">
+                {kind}
+              </span>
+              <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted ring-1 ring-border">
+                {providerLabel(provider)}
+              </span>
+              {!c.sync_enabled ? (
+                <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[10px] font-semibold text-warning">
+                  Import paused
+                </span>
+              ) : null}
+              {c.export_enabled ? (
+                <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold text-accent">
+                  Export on
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-0.5 truncate text-xs text-muted">
+              {c.external_account_email || providerLabel(provider)}
+              {c.external_calendar_id && c.label
+                ? ` · ${c.external_calendar_id.slice(0, 36)}${c.external_calendar_id.length > 36 ? "…" : ""}`
+                : ""}
+            </p>
+            <p className="mt-0.5 text-[11px] text-muted">
+              {formatRelativeSync(c.last_synced_at)}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <label
+            className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground"
+            title={c.sync_enabled ? "Import enabled" : "Import paused"}
+          >
+            <span
+              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                c.sync_enabled ? "bg-accent" : "bg-slate-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  c.sync_enabled ? "translate-x-4" : "translate-x-0.5"
+                }`}
+              />
+              <input
+                type="checkbox"
+                className="sr-only"
+                checked={c.sync_enabled}
+                disabled={busy}
+                onChange={(e) =>
+                  void toggleSync(provider, c.id, e.target.checked)
+                }
+              />
+            </span>
+            Import
+          </label>
+          <label
+            className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground"
+            title={
+              !canWrite
+                ? `Reconnect ${providerLabel(provider)} for two-way sync`
+                : c.export_enabled
+                  ? "Export enabled"
+                  : "Export off (opt-in)"
+            }
+          >
+            <span
+              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                c.export_enabled ? "bg-accent" : "bg-slate-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  c.export_enabled ? "translate-x-4" : "translate-x-0.5"
+                }`}
+              />
+              <input
+                type="checkbox"
+                className="sr-only"
+                checked={Boolean(c.export_enabled)}
+                disabled={busy || !canWrite}
+                onChange={(e) =>
+                  void toggleExport(provider, c.id, e.target.checked)
+                }
+              />
+            </span>
+            Export
+          </label>
+          {!canWrite ? (
+            <a
+              href={`${apiBase(provider)}/connect`}
+              className="text-[11px] font-semibold text-warning hover:underline"
+            >
+              Reconnect for export
+            </a>
+          ) : null}
+          <button
+            type="button"
+            className={secondaryBtn}
+            disabled={busy || !c.sync_enabled}
+            onClick={() => void syncOne(provider, c.id)}
+          >
+            Sync now
+          </button>
+          <button
+            type="button"
+            className={secondaryBtn}
+            disabled={busy}
+            onClick={() => void removeOne(provider, c.id)}
+          >
+            Disconnect
+          </button>
+        </div>
+      </li>
+    );
+  }
+
+  const anyConnected =
+    googleConnections.length > 0 || outlookConnections.length > 0;
 
   return (
     <section
@@ -300,12 +508,12 @@ export function ConnectedCalendars({
             Connected calendars
           </h2>
           <p className="mt-1 max-w-xl text-xs leading-5 text-muted">
-            Personal, work, or family Google calendars.{" "}
+            Personal, work, or family Google and Outlook calendars.{" "}
             <span className="font-semibold text-foreground">
               Import never shares with your co-parent.
             </span>{" "}
-            Imports stay private until you propose and they accept. Export to
-            Google is opt-in per calendar.
+            Imports stay private until you propose and they accept. Export is
+            opt-in per calendar.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -314,9 +522,21 @@ export function ConnectedCalendars({
               type="button"
               className={secondaryBtn}
               disabled={busy}
-              onClick={() => void loadPicker(googleConnections[0].id)}
+              onClick={() => void loadPicker("google", googleConnections[0].id)}
             >
-              Add another
+              Add Google calendar
+            </button>
+          ) : null}
+          {outlookConnections.length > 0 ? (
+            <button
+              type="button"
+              className={secondaryBtn}
+              disabled={busy}
+              onClick={() =>
+                void loadPicker("outlook", outlookConnections[0].id)
+              }
+            >
+              Add Outlook calendar
             </button>
           ) : null}
           <a
@@ -324,7 +544,18 @@ export function ConnectedCalendars({
             className={primaryBtn}
             aria-disabled={busy}
           >
-            {googleConnections.length > 0 ? "Connect Google again" : "Connect Google Calendar"}
+            {googleConnections.length > 0
+              ? "Connect Google again"
+              : "Connect Google"}
+          </a>
+          <a
+            href="/api/calendar/outlook/connect"
+            className={secondaryBtn}
+            aria-disabled={busy}
+          >
+            {outlookConnections.length > 0
+              ? "Connect Outlook again"
+              : "Connect Outlook"}
           </a>
         </div>
       </div>
@@ -335,10 +566,12 @@ export function ConnectedCalendars({
           role="alert"
         >
           {error}
-          {error.includes("not_configured") || flashError === "not_configured" ? (
+          {error.includes("not_configured") ||
+          flashError === "not_configured" ||
+          outlookFlashError === "not_configured" ? (
             <span className="mt-1 block text-xs text-muted">
-              Add GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET in Vercel and create
-              OAuth credentials (see GOOGLE-SETUP.md).
+              Add OAuth credentials in Vercel. See GOOGLE-SETUP.md or
+              OUTLOOK-CALENDAR-SETUP.md.
             </span>
           ) : null}
         </p>
@@ -359,18 +592,22 @@ export function ConnectedCalendars({
 
       {!oauthConfiguredHint ? (
         <p className="mt-3 text-xs text-muted">
-          Google OAuth env vars are not set yet. UI is ready; finish setup in
-          GOOGLE-SETUP.md.
+          Google OAuth env vars are not set yet. See GOOGLE-SETUP.md.
+        </p>
+      ) : null}
+      {!outlookOAuthConfiguredHint ? (
+        <p className="mt-3 text-xs text-muted">
+          Microsoft OAuth env vars are not set yet. See OUTLOOK-CALENDAR-SETUP.md.
         </p>
       ) : null}
 
-      {needsWriteReconnect ? (
+      {needsGoogleWriteReconnect ? (
         <div className="mt-3 rounded-xl border border-amber-200 bg-warning-soft/70 px-3.5 py-3 text-sm text-foreground">
           <p className="font-semibold">Reconnect Google for two-way sync</p>
           <p className="mt-1 text-xs leading-5 text-muted">
-            Your connection only has read access. Disconnect is not required:
-            use Connect Google again (or Connect Google again below) and approve
-            calendar write access so Export can push events you create.
+            Your Google connection only has read access. Use Connect Google again
+            and approve calendar write access so Export can push events you
+            create.
           </p>
           <a href="/api/calendar/google/connect" className={`${primaryBtn} mt-2`}>
             Reconnect Google for two-way sync
@@ -378,158 +615,54 @@ export function ConnectedCalendars({
         </div>
       ) : null}
 
-      {googleConnections.length === 0 ? (
+      {needsOutlookWriteReconnect ? (
+        <div className="mt-3 rounded-xl border border-amber-200 bg-warning-soft/70 px-3.5 py-3 text-sm text-foreground">
+          <p className="font-semibold">Reconnect Outlook for two-way sync</p>
+          <p className="mt-1 text-xs leading-5 text-muted">
+            Your Outlook connection only has read access. Use Connect Outlook
+            again and approve Calendars.ReadWrite so Export can push events you
+            create.
+          </p>
+          <a
+            href="/api/calendar/outlook/connect"
+            className={`${primaryBtn} mt-2`}
+          >
+            Reconnect Outlook for two-way sync
+          </a>
+        </div>
+      ) : null}
+
+      {!anyConnected ? (
         <div className="mt-4 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-surface/60 px-4 py-6 text-center">
           <div
             className="flex h-11 w-11 items-center justify-center rounded-xl bg-card ring-1 ring-border"
             aria-hidden
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="text-muted">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              className="text-muted"
+            >
               <rect x="3" y="5" width="18" height="16" rx="2" />
               <path d="M3 9h18M8 3v4M16 3v4" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-foreground">No calendars connected</p>
+          <p className="text-sm font-medium text-foreground">
+            No calendars connected
+          </p>
           <p className="max-w-sm text-xs leading-5 text-muted">
-            Connect Google, then pick personal, work, or shared family calendars.
-            Everything imports as private.
+            Connect Google or Outlook, then pick personal, work, or shared family
+            calendars. Everything imports as private.
           </p>
         </div>
       ) : (
         <ul className="mt-4 space-y-2">
-          {googleConnections.map((c) => {
-            const color = colorForLabel(c.label, c.id);
-            const kind = inferKind(c.label, c.external_calendar_id);
-            const displayName =
-              c.label?.trim() ||
-              c.external_calendar_id ||
-              "Google calendar";
-            return (
-              <li
-                key={c.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background px-3 py-3 sm:px-3.5"
-              >
-                <div className="flex min-w-0 items-start gap-3">
-                  <span
-                    className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white shadow-[var(--shadow-sm)]"
-                    style={{ backgroundColor: color }}
-                    aria-hidden
-                  >
-                    {(displayName.slice(0, 1) || "G").toUpperCase()}
-                  </span>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <p className="truncate font-semibold text-foreground">
-                        {displayName}
-                      </p>
-                      <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted ring-1 ring-border">
-                        {kind}
-                      </span>
-                      {!c.sync_enabled ? (
-                        <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[10px] font-semibold text-warning">
-                          Import paused
-                        </span>
-                      ) : null}
-                      {c.export_enabled ? (
-                        <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold text-accent">
-                          Export on
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-0.5 truncate text-xs text-muted">
-                      {c.external_account_email || "Google"}
-                      {c.external_calendar_id && c.label
-                        ? ` · ${c.external_calendar_id}`
-                        : ""}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-muted">
-                      {formatRelativeSync(c.last_synced_at)}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <label
-                    className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground"
-                    title={c.sync_enabled ? "Import enabled" : "Import paused"}
-                  >
-                    <span
-                      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-                        c.sync_enabled ? "bg-accent" : "bg-slate-300"
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                          c.sync_enabled ? "translate-x-4" : "translate-x-0.5"
-                        }`}
-                      />
-                      <input
-                        type="checkbox"
-                        className="sr-only"
-                        checked={c.sync_enabled}
-                        disabled={busy}
-                        onChange={(e) => void toggleSync(c.id, e.target.checked)}
-                      />
-                    </span>
-                    Import
-                  </label>
-                  <label
-                    className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground"
-                    title={
-                      !connectionHasWriteScope(c.scopes)
-                        ? "Reconnect Google for two-way sync"
-                        : c.export_enabled
-                          ? "Export enabled"
-                          : "Export off (opt-in)"
-                    }
-                  >
-                    <span
-                      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-                        c.export_enabled ? "bg-accent" : "bg-slate-300"
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                          c.export_enabled ? "translate-x-4" : "translate-x-0.5"
-                        }`}
-                      />
-                      <input
-                        type="checkbox"
-                        className="sr-only"
-                        checked={Boolean(c.export_enabled)}
-                        disabled={busy || !connectionHasWriteScope(c.scopes)}
-                        onChange={(e) => void toggleExport(c.id, e.target.checked)}
-                      />
-                    </span>
-                    Export
-                  </label>
-                  {!connectionHasWriteScope(c.scopes) ? (
-                    <a
-                      href="/api/calendar/google/connect"
-                      className="text-[11px] font-semibold text-warning hover:underline"
-                    >
-                      Reconnect for export
-                    </a>
-                  ) : null}
-                  <button
-                    type="button"
-                    className={secondaryBtn}
-                    disabled={busy || !c.sync_enabled}
-                    onClick={() => void syncOne(c.id)}
-                  >
-                    Sync now
-                  </button>
-                  <button
-                    type="button"
-                    className={secondaryBtn}
-                    disabled={busy}
-                    onClick={() => void removeOne(c.id)}
-                  >
-                    Disconnect
-                  </button>
-                </div>
-              </li>
-            );
-          })}
+          {googleConnections.map((c) => renderConnectionRow(c, "google"))}
+          {outlookConnections.map((c) => renderConnectionRow(c, "outlook"))}
         </ul>
       )}
 
@@ -538,7 +671,7 @@ export function ConnectedCalendars({
           className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="google-cal-picker-title"
+          aria-labelledby="cal-picker-title"
         >
           <button
             type="button"
@@ -550,10 +683,10 @@ export function ConnectedCalendars({
           <div className="relative z-10 max-h-[min(92vh,640px)] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-border bg-card shadow-[var(--shadow-lg)] sm:mx-4 sm:rounded-2xl">
             <div className="sticky top-0 border-b border-border bg-card/95 px-4 py-3.5 backdrop-blur sm:px-5">
               <h3
-                id="google-cal-picker-title"
+                id="cal-picker-title"
                 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl"
               >
-                Choose calendars to sync
+                Choose {providerLabel(pickerProvider)} calendars to sync
               </h3>
               <p className="mt-1 text-xs leading-5 text-muted">
                 {email ? `Account: ${email}. ` : ""}
@@ -625,7 +758,7 @@ export function ConnectedCalendars({
 
             {options.length === 0 ? (
               <p className="px-4 pb-2 text-sm text-muted sm:px-5">
-                No calendars returned from Google.
+                No calendars returned from {providerLabel(pickerProvider)}.
               </p>
             ) : null}
 

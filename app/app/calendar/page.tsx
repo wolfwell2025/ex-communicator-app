@@ -21,6 +21,14 @@ export default async function CalendarPage({ searchParams }: PageProps) {
   const googleError = Array.isArray(googleErrorRaw)
     ? googleErrorRaw[0]
     : googleErrorRaw;
+  const outlookPick =
+    params.outlook_pick === "1" || params.outlook_pick === "true";
+  const outlookUpgraded =
+    params.outlook_upgraded === "1" || params.outlook_upgraded === "true";
+  const outlookErrorRaw = params.outlook_error;
+  const outlookError = Array.isArray(outlookErrorRaw)
+    ? outlookErrorRaw[0]
+    : outlookErrorRaw;
   const supabase = await createClient();
   const {
     data: { user },
@@ -94,7 +102,11 @@ export default async function CalendarPage({ searchParams }: PageProps) {
               <code className="rounded-md border border-amber-200 bg-white px-1.5 py-0.5 text-xs text-foreground">
                 supabase/migrations/004_calendar_oauth_tokens.sql
               </code>{" "}
-              into the Supabase SQL Editor, then refresh.
+              (and{" "}
+              <code className="rounded-md border border-amber-200 bg-white px-1.5 py-0.5 text-xs text-foreground">
+                011_outlook_calendar.sql
+              </code>{" "}
+              for Outlook) into the Supabase SQL Editor, then refresh.
             </>
           ) : null}
         </p>
@@ -112,6 +124,9 @@ export default async function CalendarPage({ searchParams }: PageProps) {
         googlePick={googlePick}
         googleUpgraded={googleUpgraded}
         googleError={googleError ?? null}
+        outlookPick={outlookPick}
+        outlookUpgraded={outlookUpgraded}
+        outlookError={outlookError ?? null}
       />
     </div>
   );
