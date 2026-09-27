@@ -42,6 +42,7 @@ type Props = {
   initialEvents: CalendarEvent[];
   initialConnections: PersonalCalendarConnection[];
   googlePick?: boolean;
+  googleUpgraded?: boolean;
   googleError?: string | null;
 };
 
@@ -250,6 +251,7 @@ export function CalendarPanel({
   initialEvents,
   initialConnections,
   googlePick = false,
+  googleUpgraded = false,
   googleError = null,
 }: Props) {
   const supabase = useMemo(() => createClient(), []);
@@ -573,6 +575,7 @@ export function CalendarPanel({
         connections={connections}
         onChanged={refresh}
         autoOpenPicker={googlePick}
+        googleUpgraded={googleUpgraded}
         flashError={googleError}
       />
 

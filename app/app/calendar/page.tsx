@@ -15,6 +15,8 @@ type PageProps = {
 export default async function CalendarPage({ searchParams }: PageProps) {
   const params = (await searchParams) ?? {};
   const googlePick = params.google_pick === "1" || params.google_pick === "true";
+  const googleUpgraded =
+    params.google_upgraded === "1" || params.google_upgraded === "true";
   const googleErrorRaw = params.google_error;
   const googleError = Array.isArray(googleErrorRaw)
     ? googleErrorRaw[0]
@@ -108,6 +110,7 @@ export default async function CalendarPage({ searchParams }: PageProps) {
         initialEvents={events}
         initialConnections={connections}
         googlePick={googlePick}
+        googleUpgraded={googleUpgraded}
         googleError={googleError ?? null}
       />
     </div>

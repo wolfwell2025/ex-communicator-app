@@ -21,6 +21,7 @@ type Props = {
   connections: PersonalCalendarConnection[];
   onChanged: () => Promise<void> | void;
   autoOpenPicker?: boolean;
+  googleUpgraded?: boolean;
   flashError?: string | null;
   oauthConfiguredHint?: boolean;
 };
@@ -72,12 +73,17 @@ export function ConnectedCalendars({
   connections,
   onChanged,
   autoOpenPicker,
+  googleUpgraded = false,
   flashError,
   oauthConfiguredHint = true,
 }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(flashError ?? null);
-  const [note, setNote] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(
+    googleUpgraded
+      ? "Google write access updated. You can turn Export on."
+      : null
+  );
   const [pickerOpen, setPickerOpen] = useState(false);
   const [fromConnection, setFromConnection] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
@@ -118,7 +124,8 @@ export function ConnectedCalendars({
       setPrivacyNote(json.privacyNote ?? null);
       const initial: Record<string, string> = {};
       for (const c of json.calendars ?? []) {
-        if (!c.alreadyConnected && c.primary) {
+        // Pre-check already-connected and primary so reconnect can refresh tokens/scopes
+        if (c.alreadyConnected || c.primary) {
           initial[c.id] = c.summary;
         }
       }
@@ -271,7 +278,6 @@ export function ConnectedCalendars({
   }
 
   function toggleOption(cal: GoogleCalOption) {
-    if (cal.alreadyConnected) return;
     setSelected((prev) => {
       const next = { ...prev };
       if (next[cal.id] !== undefined) {
@@ -563,19 +569,17 @@ export function ConnectedCalendars({
                   <li
                     key={cal.id}
                     className={`rounded-xl border px-3.5 py-3 ${
-                      cal.alreadyConnected
-                        ? "border-border bg-surface opacity-70"
-                        : checked
-                          ? "border-accent bg-accent-soft/40"
-                          : "border-border bg-background"
+                      checked
+                        ? "border-accent bg-accent-soft/40"
+                        : "border-border bg-background"
                     }`}
                   >
                     <label className="flex cursor-pointer items-start gap-3">
                       <input
                         type="checkbox"
                         className="mt-1"
-                        disabled={busy || cal.alreadyConnected}
-                        checked={checked || Boolean(cal.alreadyConnected)}
+                        disabled={busy}
+                        checked={checked}
                         onChange={() => toggleOption(cal)}
                       />
                       <span className="min-w-0 flex-1">
@@ -592,7 +596,7 @@ export function ConnectedCalendars({
                             </span>
                           ) : null}
                         </span>
-                        {checked && !cal.alreadyConnected ? (
+                        {checked ? (
                           <div className="mt-2 space-y-1">
                             <span className="text-[11px] font-medium text-muted">
                               Label (personal / work / family)

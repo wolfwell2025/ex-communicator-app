@@ -4,6 +4,7 @@ import {
   exchangeGoogleCode,
   fetchGoogleUserEmail,
   googleOAuthConfigured,
+  upgradeGoogleAccountTokens,
 } from "@/lib/google-calendar";
 import {
   PENDING_COOKIE,
@@ -59,15 +60,34 @@ export async function GET(request: Request) {
       scopes: tokens.scope ?? null,
       email,
     };
-    const res = NextResponse.redirect(`${origin}/app/calendar?google_pick=1`);
-    res.cookies.set(OAUTH_STATE_COOKIE, "", { path: "/", maxAge: 0 });
-    res.cookies.set(PENDING_COOKIE, serializePendingCookie(pending), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: PENDING_MAX_AGE,
+
+    const { upgraded, hasWriteScope } = await upgradeGoogleAccountTokens({
+      supabase,
+      userId: user.id,
+      pending,
     });
+
+    const res =
+      upgraded > 0 && hasWriteScope
+        ? NextResponse.redirect(`${origin}/app/calendar?google_upgraded=1`)
+        : NextResponse.redirect(`${origin}/app/calendar?google_pick=1`);
+
+    res.cookies.set(OAUTH_STATE_COOKIE, "", { path: "/", maxAge: 0 });
+
+    if (upgraded > 0 && hasWriteScope) {
+      // Tokens already on existing rows; clear any stale pending cookie.
+      res.cookies.set(PENDING_COOKIE, "", { path: "/", maxAge: 0 });
+    } else {
+      // First-time connect (or upgrade without write): open picker with pending auth.
+      res.cookies.set(PENDING_COOKIE, serializePendingCookie(pending), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: PENDING_MAX_AGE,
+      });
+    }
+
     return res;
   } catch (e) {
     const msg = e instanceof Error ? e.message : "token_exchange_failed";

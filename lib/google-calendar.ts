@@ -322,7 +322,7 @@ async function getValidAccessToken(
     .update({
       access_token_enc: accessEnc,
       token_expires_at: expires,
-      scopes: refreshed.scope ?? connection.scopes,
+      scopes: mergeGoogleScopes(refreshed.scope, connection.scopes),
     })
     .eq("user_id", connection.user_id)
     .eq("provider", "google")
@@ -337,6 +337,111 @@ export function encodePendingAuth(pending: PendingGoogleAuth): string {
 
 export function decodePendingAuth(payload: string): PendingGoogleAuth {
   return JSON.parse(decryptSecret(payload)) as PendingGoogleAuth;
+}
+
+
+/** Union space-separated OAuth scope strings (Google may return only incremental scopes). */
+export function mergeGoogleScopes(
+  ...parts: (string | null | undefined)[]
+): string {
+  const set = new Set<string>();
+  for (const part of parts) {
+    if (!part) continue;
+    for (const s of part.split(/\s+/).filter(Boolean)) set.add(s);
+  }
+  return [...set].join(" ");
+}
+
+/**
+ * After a fresh OAuth consent, push new tokens + merged scopes onto every
+ * existing Google connection for this user + account email so Export / write
+ * scope unlocks without forcing the calendar picker.
+ */
+export async function upgradeGoogleAccountTokens(args: {
+  supabase: SupabaseClient;
+  userId: string;
+  pending: PendingGoogleAuth;
+}): Promise<{ upgraded: number; hasWriteScope: boolean; error: string | null }> {
+  const email = args.pending.email?.trim() || null;
+  if (!email) {
+    return {
+      upgraded: 0,
+      hasWriteScope: connectionHasWriteScope(
+        mergeGoogleScopes(args.pending.scopes, GOOGLE_CALENDAR_SCOPES)
+      ),
+      error: null,
+    };
+  }
+
+  const { data: rows, error: listErr } = await args.supabase
+    .from("personal_calendar_connections")
+    .select(
+      "id, scopes, refresh_token_enc, access_token_enc, token_expires_at"
+    )
+    .eq("user_id", args.userId)
+    .eq("provider", "google")
+    .eq("external_account_email", email)
+    .eq("status", "connected");
+
+  if (listErr) {
+    return { upgraded: 0, hasWriteScope: false, error: listErr.message };
+  }
+  if (!rows?.length) {
+    return {
+      upgraded: 0,
+      hasWriteScope: connectionHasWriteScope(
+        mergeGoogleScopes(args.pending.scopes, GOOGLE_CALENDAR_SCOPES)
+      ),
+      error: null,
+    };
+  }
+
+  const accessEnc = encryptSecret(args.pending.accessToken);
+  const newRefreshEnc = args.pending.refreshToken
+    ? encryptSecret(args.pending.refreshToken)
+    : null;
+  const expires = new Date(args.pending.expiresAt).toISOString();
+
+  let upgraded = 0;
+  let anyWrite = false;
+  let lastError: string | null = null;
+
+  for (const row of rows) {
+    const mergedScopes = mergeGoogleScopes(
+      args.pending.scopes,
+      row.scopes,
+      GOOGLE_CALENDAR_SCOPES
+    );
+    if (connectionHasWriteScope(mergedScopes)) anyWrite = true;
+
+    const refreshEnc = newRefreshEnc ?? row.refresh_token_enc ?? null;
+    const { error } = await args.supabase
+      .from("personal_calendar_connections")
+      .update({
+        access_token_enc: accessEnc,
+        refresh_token_enc: refreshEnc,
+        token_expires_at: expires,
+        scopes: mergedScopes,
+        status: "connected",
+      })
+      .eq("id", row.id)
+      .eq("user_id", args.userId);
+
+    if (error) {
+      lastError = error.message;
+      continue;
+    }
+    upgraded += 1;
+  }
+
+  return {
+    upgraded,
+    hasWriteScope: anyWrite ||
+      connectionHasWriteScope(
+        mergeGoogleScopes(args.pending.scopes, GOOGLE_CALENDAR_SCOPES)
+      ),
+    error: upgraded === 0 ? lastError : null,
+  };
 }
 
 /** Create or update one calendar connection. Sync imports stay private. */
@@ -395,7 +500,7 @@ export async function saveCalendarConnection(args: {
     access_token_enc: accessEnc,
     refresh_token_enc: refreshToStore,
     token_expires_at: expires,
-    scopes: args.pending.scopes ?? GOOGLE_CALENDAR_SCOPES,
+    scopes: mergeGoogleScopes(args.pending.scopes, GOOGLE_CALENDAR_SCOPES),
   };
 
   if (existing?.id) {

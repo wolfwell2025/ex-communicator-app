@@ -168,6 +168,8 @@ export function MessagesPanel({
   const [documents, setDocuments] = useState<PickerDocumentItem[]>([]);
   const [suggestions, setSuggestions] = useState<CalendarSuggestion[]>([]);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const coachRef = useRef<HTMLDivElement | null>(null);
+  const composerFormRef = useRef<HTMLFormElement | null>(null);
   const toneRequestId = useRef(0);
   const lastFlaggedTextRef = useRef<string | null>(null);
   const flagCountRef = useRef(0);
@@ -678,6 +680,25 @@ export function MessagesPanel({
     selectedId !== "new" &&
     body.trim().length > 0;
 
+
+  useEffect(() => {
+    if (!showCoach) return;
+    const t = window.setTimeout(() => {
+      coachRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      // Also ensure the composer form scrolls if coach sits below the fold inside it
+      if (coachRef.current && composerFormRef.current) {
+        const form = composerFormRef.current;
+        const coach = coachRef.current;
+        const formRect = form.getBoundingClientRect();
+        const coachRect = coach.getBoundingClientRect();
+        if (coachRect.bottom > formRect.bottom - 8 || coachRect.top < formRect.top) {
+          coach.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+      }
+    }, 50);
+    return () => window.clearTimeout(t);
+  }, [showCoach, escalated, toneCoach?.suggestion, objectiveLoading]);
+
   const composerReady =
     !sending &&
     !softBlocked &&
@@ -783,7 +804,7 @@ export function MessagesPanel({
       </aside>
 
       {/* Right: thread / compose */}
-      <section className="flex min-w-0 flex-1 flex-col">
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
           <div className="min-w-0">
             {selectedId === "new" ? (
@@ -827,7 +848,7 @@ export function MessagesPanel({
           </div>
         </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto bg-background px-4 py-4 sm:px-5">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-background px-4 py-4 sm:px-5">
           {selectedId && selectedId !== "new" && suggestions.length > 0 ? (
             <SuggestionBanner
               suggestions={suggestions.filter((s) => {
@@ -925,8 +946,9 @@ export function MessagesPanel({
 
         {selectedId ? (
           <form
+            ref={composerFormRef}
             onSubmit={onSend}
-            className="border-t border-border bg-card px-4 py-4 sm:px-5"
+            className="max-h-[min(52vh,560px)] shrink-0 overflow-y-auto border-t border-border bg-card px-4 py-4 sm:px-5"
           >
             {error ? (
               <p
@@ -1121,6 +1143,7 @@ export function MessagesPanel({
 
             {showCoach ? (
               <div
+                ref={coachRef}
                 className={`mt-3 rounded-2xl border px-4 py-3.5 shadow-[var(--shadow-sm)] ${
                   coachSeverity === "high" || escalated
                     ? "border-red-200 bg-danger-soft"
